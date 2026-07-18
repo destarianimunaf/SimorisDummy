@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SIMORIS — Sistem Penomoran Surat Otomatis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --ink-900:#14264a; --ink-800:#1a3157; --ink-600:#2c4c7c; --ink-400:#5b729c;
@@ -106,6 +107,17 @@
   .surat-card-actions{ display:flex; gap:14px; margin-top:10px; padding-top:10px; border-top:1px solid var(--ink-100); }
   .surat-card-actions button{ font-size:12.5px; font-weight:700; }
 
+  .row-clickable{ cursor:pointer; }
+  .surat-card.row-clickable:active{ background:var(--paper); }
+  tbody tr.row-clickable:hover .nomor-badge{ border-color:var(--segel); }
+
+  .detail-hero{ text-align:center; padding:2px 0 6px; }
+  .detail-hero .nomor-badge{ font-size:16px; padding:7px 14px; }
+  .detail-grid{ display:flex; flex-direction:column; gap:10px; }
+  .detail-row{ display:flex; flex-direction:column; gap:3px; padding:10px 12px; background:var(--paper); border-radius:8px; }
+  .detail-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-600); }
+  .detail-value{ font-size:14px; color:var(--ink-900); word-break:break-word; line-height:1.4; }
+
   @media (max-width:760px){
     .wrap{ padding:0 16px; }
     body{ font-size:13.5px; }
@@ -117,8 +129,8 @@
     #btnTambah{ flex:1; justify-content:center; }
     .toolbar{ gap:8px; }
     .toolbar select{ min-width:0; width:100%; }
-    .toolbar-right{ margin-left:0; width:100%; gap:8px; }
-    .toolbar-right .btn{ flex:1; justify-content:center; padding:9px 10px; font-size:12.5px; }
+    .toolbar-right{ margin-left:0; width:100%; gap:8px; flex-wrap:wrap; }
+    .toolbar-right .btn{ flex:1 1 calc(50% - 4px); justify-content:center; padding:9px 8px; font-size:12px; white-space:nowrap; }
     .grid2{ grid-template-columns:1fr; }
     .modal{ max-width:100%; border-radius:14px 14px 0 0; align-self:flex-end; }
     .overlay{ align-items:flex-end; padding:0; }
@@ -195,7 +207,7 @@
   }
 
   var S = load();
-  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null };
+  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null };
 
   function kodeOf(id){
     for(var i=0;i<S.kodeList.length;i++){ if(S.kodeList[i].id===id) return S.kodeList[i]; }
@@ -268,10 +280,11 @@
       '</div>'+
       '<select id="kodeFilterSelect"><option value="">Semua kode klasifikasi</option>'+opts+'</select>'+
       '<div class="toolbar-right">'+
-        '<button class="btn btn-ghost" id="btnImport">Impor Data</button>'+
-        '<input type="file" id="importFileInput" accept=".json,.csv" class="visually-hidden" />'+
-        '<button class="btn btn-ghost" id="btnJson">Cadangkan</button>'+
+        '<button class="btn btn-ghost" id="btnImport">Impor Excel/CSV</button>'+
+        '<input type="file" id="importFileInput" accept=".json,.csv,.xlsx,.xls" class="visually-hidden" />'+
+        '<button class="btn btn-ghost" id="btnExcel">Unduh Excel</button>'+
         '<button class="btn btn-ghost" id="btnCsv">Unduh CSV</button>'+
+        '<button class="btn btn-ghost" id="btnJson">Cadangkan</button>'+
         '<button class="btn btn-ghost" id="btnPrint">Cetak</button>'+
       '</div>'+
     '</div>';
@@ -289,7 +302,7 @@
     var trs = rows.map(function(s){
       var k = kodeOf(s.kodeId);
       var warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
-      return '<tr>'+
+      return '<tr class="row-clickable" data-row-detail="'+s.id+'">'+
         '<td class="mono" style="color:var(--ink-400)">'+s.urut+'</td>'+
         '<td><span class="nomor-badge mono">'+esc(nomorSurat(s.urut,s.kodeId))+'</span></td>'+
         '<td style="white-space:nowrap;color:var(--ink-600)">'+fmtTanggal(s.tanggal)+'</td>'+
@@ -311,7 +324,7 @@
     var cards = rows.map(function(s){
       var k = kodeOf(s.kodeId);
       var warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
-      return '<div class="surat-card">'+
+      return '<div class="surat-card row-clickable" data-row-detail="'+s.id+'">'+
         '<div class="surat-card-top">'+
           '<span class="nomor-badge mono">'+esc(nomorSurat(s.urut,s.kodeId))+'</span>'+
           (k?'<span class="badge '+warnaCls+'">'+esc(k.kode)+'</span>':'')+
@@ -366,6 +379,35 @@
       '</div></div></div>';
   }
 
+  function renderDetailModal(){
+    if(ui.modal !== "detail") return "";
+    var s = S.surats.filter(function(x){return x.id===ui.detailId;})[0];
+    if(!s) return "";
+    var k = kodeOf(s.kodeId);
+
+    function baris(label, value){
+      return '<div class="detail-row"><span class="detail-label">'+label+'</span><span class="detail-value">'+value+'</span></div>';
+    }
+
+    return '<div class="overlay" id="detailOverlay"><div class="modal">'+
+      '<div class="modal-head"><h2>Detail Surat</h2><button class="modal-close" id="closeDetailModal">&times;</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="detail-hero"><span class="nomor-badge mono">'+esc(nomorSurat(s.urut,s.kodeId))+'</span></div>'+
+        '<div class="detail-grid">'+
+          baris('Kode Klasifikasi', k ? (esc(k.kode)+' — '+esc(k.nama)) : '—')+
+          baris('Tanggal Surat', fmtTanggal(s.tanggal))+
+          baris('Tujuan Surat', esc(s.tujuan||'—'))+
+          baris('Perihal', esc(s.perihal))+
+          baris('Nomor Urut', String(s.urut))+
+          baris('Dibuat oleh', esc(s.dibuatOleh||'—'))+
+        '</div>'+
+        '<div class="form-actions">'+
+          '<button class="btn-ghost" id="closeDetailModal2">Tutup</button>'+
+          '<button class="btn-dark" id="detailEditBtn">Ubah Surat</button>'+
+        '</div>'+
+      '</div></div></div>';
+  }
+
   function renderKelolaModal(){
     if(ui.modal !== "kelola") return "";
     var rows = S.kodeList.map(function(k){
@@ -401,13 +443,13 @@
   }
 
   function renderStorageBanner(){
-    return '<div class="banner">Data tersimpan otomatis di peramban perangkat ini. Untuk memakai data yang sama di perangkat/komputer lain, gunakan <b>Cadangkan</b> di perangkat ini lalu <b>Impor Data</b> file tersebut di perangkat lain.</div>';
+    return '<div class="banner">Data tersimpan otomatis di peramban perangkat ini. Untuk memakai data yang sama di perangkat/komputer lain: unduh <b>Cadangkan (JSON)</b> di sini lalu <b>Impor Excel/CSV</b> file tersebut di perangkat lain. Anda juga bisa langsung mengimpor rekap lama dari file Excel (.xlsx) sesuai format spreadsheet sebelumnya (kolom Tujuan Surat, Tanggal Surat, Perihal, Nomor Surat).</div>';
   }
 
   function render(){
     var html = renderHeader() +
       '<main class="wrap">' + renderToolbar() + renderStorageBanner() + renderTable() + '</main>' +
-      renderSuratModal() + renderKelolaModal() +
+      renderSuratModal() + renderKelolaModal() + renderDetailModal() +
       (ui.toast ? '<div class="toast">'+esc(ui.toast)+'</div>' : '') +
       '<footer class="app-footer">SIMORIS &middot; data tersimpan di peramban perangkat ini</footer>';
     document.getElementById("app").innerHTML = html;
@@ -420,15 +462,23 @@
     $("btnTambah").onclick = function(){ ui.modal="surat"; ui.editingId=null; ui.formKodeId=null; render(); };
     $("btnKelola").onclick = function(){ ui.modal="kelola"; render(); };
     $("btnCsv").onclick = exportCsv;
+    $("btnExcel").onclick = exportExcel;
     $("btnJson").onclick = exportJson;
     $("btnPrint").onclick = function(){ window.print(); };
     $("btnImport").onclick = function(){ $("importFileInput").click(); };
     $("importFileInput").onchange = function(e){
       var file = e.target.files[0];
       if(!file) return;
-      var reader = new FileReader();
-      reader.onload = function(ev){ handleImportedText(ev.target.result, file.name); };
-      reader.readAsText(file, "UTF-8");
+      var name = file.name.toLowerCase();
+      if(/\.(xlsx|xls)$/.test(name)){
+        var readerBin = new FileReader();
+        readerBin.onload = function(ev){ handleImportedExcel(ev.target.result); };
+        readerBin.readAsArrayBuffer(file);
+      } else {
+        var readerTxt = new FileReader();
+        readerTxt.onload = function(ev){ handleImportedText(ev.target.result, file.name); };
+        readerTxt.readAsText(file, "UTF-8");
+      }
       e.target.value = "";
     };
 
@@ -452,6 +502,14 @@
         S.surats = S.surats.filter(function(x){ return x.id!==id; });
         save(S);
         showToast("Surat dihapus.");
+      };
+    });
+    document.querySelectorAll("[data-row-detail]").forEach(function(el){
+      el.onclick = function(e){
+        if(e.target.closest("button")) return;
+        ui.modal = "detail";
+        ui.detailId = Number(el.getAttribute("data-row-detail"));
+        render();
       };
     });
 
@@ -486,6 +544,17 @@
           ui.modal=null;
           showToast("Nomor "+nomor+" berhasil diterbitkan.");
         }
+      };
+    }
+
+    if(ui.modal === "detail"){
+      $("closeDetailModal").onclick = closeDetailModal;
+      $("closeDetailModal2").onclick = closeDetailModal;
+      $("detailOverlay").onclick = function(e){ if(e.target.id==="detailOverlay") closeDetailModal(); };
+      $("detailEditBtn").onclick = function(){
+        var id = ui.detailId;
+        ui.modal = "surat"; ui.editingId = id; ui.formKodeId = null;
+        render();
       };
     }
 
@@ -534,6 +603,7 @@
 
   function closeSuratModal(){ ui.modal=null; ui.editingId=null; ui.formKodeId=null; render(); }
   function closeKelolaModal(){ ui.modal=null; render(); }
+  function closeDetailModal(){ ui.modal=null; ui.detailId=null; render(); }
 
   function exportCsv(){
     var rows = filteredSurats();
@@ -560,6 +630,23 @@
     a.href = url; a.download = "simoris-rekap-"+isoToday(0)+".csv";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  function exportExcel(){
+    if(typeof XLSX === "undefined"){
+      alert("Pustaka Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
+      return;
+    }
+    var rows = filteredSurats().slice().sort(function(a,b){ return a.urut - b.urut; });
+    var data = [["NO","TUJUAN SURAT","TANGGAL SURAT","PERIHAL","NOMOR SURAT KELUAR / SURAT PERINTAH"]];
+    rows.forEach(function(s, idx){
+      data.push([ idx+1, s.tujuan||"", fmtTanggal(s.tanggal), s.perihal, nomorSurat(s.urut,s.kodeId) ]);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [{wch:5},{wch:22},{wch:18},{wch:42},{wch:30}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SIMORIS");
+    XLSX.writeFile(wb, "simoris-rekap-"+isoToday(0)+".xlsx");
   }
 
   function exportJson(){
@@ -645,7 +732,31 @@
   function handleImportedText(text, filename){
     var isJson = /\.json$/i.test(filename) || /^\s*\{/.test(text);
     if(isJson){ importJsonBackup(text); }
-    else { importCsvLegacy(text); }
+    else { importRowsLegacy(parseCsv(text)); }
+  }
+
+  function handleImportedExcel(arrayBuffer){
+    if(typeof XLSX === "undefined"){
+      alert("Pustaka pembaca Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
+      return;
+    }
+    var wb;
+    try{ wb = XLSX.read(arrayBuffer, { type:"array", cellDates:true }); }
+    catch(e){ alert("File Excel tidak dapat dibaca. Pastikan file berformat .xlsx atau .xls yang valid."); return; }
+
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
+    var rows = raw.map(function(r){ return r.map(excelCellToStr); })
+                  .filter(function(r){ return r.some(function(c){ return String(c).trim() !== ""; }); });
+    importRowsLegacy(rows);
+  }
+
+  function excelCellToStr(v){
+    if(v instanceof Date && !isNaN(v)){
+      return v.getFullYear()+"-"+pad2(v.getMonth()+1)+"-"+pad2(v.getDate());
+    }
+    if(v === null || v === undefined) return "";
+    return String(v).trim();
   }
 
   function importJsonBackup(text){
@@ -661,10 +772,22 @@
     showToast("Data berhasil dipulihkan dari cadangan.");
   }
 
-  function importCsvLegacy(text){
-    var rows = parseCsv(text);
-    if(rows.length < 2){ alert("File CSV kosong atau tidak terbaca."); return; }
-    var header = rows[0];
+  /**
+   * Menerima data mentah berupa array-of-array (baris x kolom) — bisa berasal
+   * dari file CSV atau Excel (.xlsx/.xls) hasil rekap manual seperti pada
+   * spreadsheet lama: kolom TUJUAN SURAT, TANGGAL SURAT, PERIHAL, dan
+   * NOMOR SURAT KELUAR / SURAT PERINTAH. Kolom NO diabaikan (dibuat ulang
+   * otomatis). Header dicari otomatis di antara 10 baris pertama supaya
+   * baris judul tambahan di atas tabel tidak mengganggu.
+   */
+  function importRowsLegacy(rows){
+    if(rows.length < 2){ alert("File kosong atau tidak terbaca."); return; }
+
+    var headerIdx = 0;
+    for(var hi=0; hi<Math.min(rows.length,10); hi++){
+      if(colIndex(rows[hi], ["perihal"]) > -1){ headerIdx = hi; break; }
+    }
+    var header = rows[headerIdx];
     var idxTujuan = colIndex(header, ["tujuan"]);
     var idxTanggal = colIndex(header, ["tanggal"]);
     var idxPerihal = colIndex(header, ["perihal"]);
@@ -672,24 +795,41 @@
     var idxKode = colIndex(header, ["kode klasifikasi","klasifikasi","kode"]);
 
     if(idxPerihal === -1){
-      alert("Kolom \"Perihal\" tidak ditemukan di file CSV ini. Pastikan file punya kolom Perihal."); return;
+      alert("Kolom \"Perihal\" tidak ditemukan. Pastikan file memiliki kolom Perihal seperti pada format spreadsheet sebelumnya."); return;
     }
 
     var existingNomor = {};
     S.surats.forEach(function(s){ existingNomor[nomorSurat(s.urut,s.kodeId)] = true; });
 
+    // Pra-pindai seluruh baris untuk mencari nomor urut eksplisit tertinggi
+    // di file ini, supaya baris tanpa nomor (diberi nomor otomatis) TIDAK
+    // pernah bentrok dengan nomor eksplisit yang justru muncul belakangan
+    // di file yang sama.
+    for(var pr=headerIdx+1; pr<rows.length; pr++){
+      var nomorRawPra = idxNomor>-1 ? String(rows[pr][idxNomor]||"").trim() : "";
+      if(!nomorRawPra) continue;
+      var partsPra = nomorRawPra.split("-");
+      if(partsPra.length >= 3){
+        var urutStrPra = partsPra[partsPra.length-1];
+        if(/^\d+$/.test(urutStrPra)){
+          var urutPra = parseInt(urutStrPra, 10);
+          if(urutPra > S.counter) S.counter = urutPra;
+        }
+      }
+    }
+
     var kodeUmum = null;
     var ditambahkan = 0, dilewati = 0, maxUrutImpor = 0;
 
-    for(var r=1; r<rows.length; r++){
+    for(var r=headerIdx+1; r<rows.length; r++){
       var cols = rows[r];
-      var perihal = idxPerihal>-1 ? (cols[idxPerihal]||"").trim() : "";
+      var perihal = idxPerihal>-1 ? String(cols[idxPerihal]||"").trim() : "";
       if(!perihal) continue;
-      var tujuan = idxTujuan>-1 ? (cols[idxTujuan]||"").trim() : "";
-      var tanggalRaw = idxTanggal>-1 ? (cols[idxTanggal]||"").trim() : "";
+      var tujuan = idxTujuan>-1 ? String(cols[idxTujuan]||"").trim() : "";
+      var tanggalRaw = idxTanggal>-1 ? String(cols[idxTanggal]||"").trim() : "";
       var tanggal = parseTanggalIndo(tanggalRaw) || isoToday(0);
-      var nomorRaw = idxNomor>-1 ? (cols[idxNomor]||"").trim() : "";
-      var kodeExplicit = idxKode>-1 ? (cols[idxKode]||"").trim() : "";
+      var nomorRaw = idxNomor>-1 ? String(cols[idxNomor]||"").trim() : "";
+      var kodeExplicit = idxKode>-1 ? String(cols[idxKode]||"").trim() : "";
 
       var kodeObj = null, urut = null;
 
