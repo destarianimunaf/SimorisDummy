@@ -118,6 +118,23 @@
   .detail-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-600); }
   .detail-value{ font-size:14px; color:var(--ink-900); word-break:break-word; line-height:1.4; }
 
+  .pagination{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; flex-wrap:wrap; }
+  .pagination-info{ color:var(--ink-600); font-size:12.5px; }
+  .pagination-controls{ display:flex; align-items:center; gap:6px; }
+  .page-btn{ border:1px solid var(--ink-100); background:#fff; color:var(--ink-800); font-weight:600; font-size:12.5px;
+    padding:7px 11px; border-radius:7px; cursor:pointer; min-width:34px; }
+  .page-btn:hover:not(:disabled){ background:var(--ink-50); }
+  .page-btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .page-btn.active{ background:var(--ink-900); color:#fff; border-color:var(--ink-900); }
+  .page-jump{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-600); }
+  .page-jump input{ width:52px; padding:6px 8px; border-radius:7px; border:1px solid var(--ink-100); font-size:12.5px; text-align:center; }
+  .page-size-select{ padding:7px 9px; border-radius:7px; border:1px solid var(--ink-100); font-size:12.5px; background:#fff; }
+
+  @media (max-width:760px){
+    .pagination{ flex-direction:column; align-items:stretch; text-align:center; }
+    .pagination-controls{ justify-content:center; flex-wrap:wrap; }
+  }
+
   @media (max-width:760px){
     .wrap{ padding:0 16px; }
     body{ font-size:13.5px; }
@@ -207,7 +224,8 @@
   }
 
   var S = load();
-  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null };
+  resortSurats();
+  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null, page:1, pageSize:50 };
 
   function kodeOf(id){
     for(var i=0;i<S.kodeList.length;i++){ if(S.kodeList[i].id===id) return S.kodeList[i]; }
@@ -233,16 +251,39 @@
     });
   }
 
+  function resortSurats(){
+    S.surats.sort(function(a,b){ return b.urut - a.urut; });
+  }
+
   function filteredSurats(){
+    // S.surats selalu dijaga terurut menurun (lihat resortSurats) sehingga
+    // pencarian/filter tidak perlu mengurutkan ulang setiap kali diketik —
+    // penting untuk performa saat data mencapai ribuan baris.
+    if(!ui.search && !ui.kodeFilter) return S.surats;
+    var searchLower = ui.search ? ui.search.toLowerCase() : "";
     return S.surats.filter(function(s){
       var matchSearch = true;
-      if(ui.search){
+      if(searchLower){
         var hay = (s.perihal+" "+s.tujuan+" "+nomorSurat(s.urut,s.kodeId)).toLowerCase();
-        matchSearch = hay.indexOf(ui.search.toLowerCase()) > -1;
+        matchSearch = hay.indexOf(searchLower) > -1;
       }
       var matchKode = !ui.kodeFilter || String(s.kodeId) === ui.kodeFilter;
       return matchSearch && matchKode;
-    }).sort(function(a,b){ return b.urut - a.urut; });
+    });
+  }
+
+  function currentPage(){
+    var all = filteredSurats();
+    var totalPages = Math.max(1, Math.ceil(all.length / ui.pageSize));
+    if(ui.page > totalPages) ui.page = totalPages;
+    if(ui.page < 1) ui.page = 1;
+    var start = (ui.page-1) * ui.pageSize;
+    return {
+      rows: all.slice(start, start + ui.pageSize),
+      total: all.length,
+      totalPages: totalPages,
+      start: start
+    };
   }
 
   function showToast(msg){
@@ -291,8 +332,10 @@
   }
 
   function renderTable(){
-    var rows = filteredSurats();
-    if(!rows.length){
+    var page = currentPage();
+    var rows = page.rows;
+
+    if(!page.total){
       return '<div class="card"><div class="empty">'+
         '<p>Tidak ada surat yang cocok</p>'+
         '<p>Coba ubah kata kunci pencarian atau filter kode klasifikasi.</p>'+
@@ -319,7 +362,7 @@
     var desktop = '<div class="card table-desktop"><table>'+
       '<thead><tr><th style="width:40px">No</th><th>Nomor Surat</th><th>Tanggal</th><th>Tujuan</th><th>Perihal</th><th>Klasifikasi</th><th></th></tr></thead>'+
       '<tbody>'+trs+'</tbody>'+
-    '</table></div>';
+    '</table>'+renderPagination(page)+'</div>';
 
     var cards = rows.map(function(s){
       var k = kodeOf(s.kodeId);
@@ -337,9 +380,43 @@
         '</div>'+
       '</div>';
     }).join("");
-    var mobile = '<div class="table-mobile">'+cards+'</div>';
+    var mobile = '<div class="table-mobile">'+cards+'<div class="card">'+renderPagination(page)+'</div></div>';
 
     return desktop + mobile;
+  }
+
+  function renderPagination(page){
+    var from = page.total ? page.start+1 : 0;
+    var to = Math.min(page.start+ui.pageSize, page.total);
+    var pageBtns = "";
+    var p = ui.page, tp = page.totalPages;
+    // tampilkan maks 5 nomor halaman di sekitar halaman aktif, agar tetap
+    // ringkas walau jumlah halaman sangat banyak (ratusan halaman untuk
+    // data ribuan baris)
+    var lo = Math.max(1, p-2), hi = Math.min(tp, p+2);
+    if(p<=3) hi = Math.min(tp, 5);
+    if(p>=tp-2) lo = Math.max(1, tp-4);
+    if(lo>1) pageBtns += '<button class="page-btn" data-page="1">1</button>'+(lo>2?'<span style="padding:0 2px;color:var(--ink-400)">…</span>':'');
+    for(var i=lo;i<=hi;i++){
+      pageBtns += '<button class="page-btn'+(i===p?' active':'')+'" data-page="'+i+'">'+i+'</button>';
+    }
+    if(hi<tp) pageBtns += (hi<tp-1?'<span style="padding:0 2px;color:var(--ink-400)">…</span>':'')+'<button class="page-btn" data-page="'+tp+'">'+tp+'</button>';
+
+    return '<div class="pagination">'+
+      '<div class="pagination-info">Menampilkan <b>'+from+'–'+to+'</b> dari <b>'+page.total+'</b> surat</div>'+
+      '<div class="pagination-controls">'+
+        '<button class="page-btn js-prev-page"'+(p<=1?' disabled':'')+'>‹ Sebelumnya</button>'+
+        pageBtns+
+        '<button class="page-btn js-next-page"'+(p>=tp?' disabled':'')+'>Berikutnya ›</button>'+
+      '</div>'+
+      '<div class="pagination-controls">'+
+        '<label class="page-jump">Per halaman '+
+          '<select class="page-size-select js-page-size">'+
+            [25,50,100,200,500].map(function(n){ return '<option value="'+n+'"'+(ui.pageSize===n?' selected':'')+'>'+n+'</option>'; }).join("")+
+          '</select>'+
+        '</label>'+
+      '</div>'+
+    '</div>';
   }
 
   function renderSuratModal(){
@@ -485,11 +562,22 @@
     var si = $("searchInput");
     si.oninput = function(e){
       ui.search = e.target.value;
+      ui.page = 1;
       render();
       var el = $("searchInput");
       el.focus(); el.selectionStart = el.selectionEnd = el.value.length;
     };
-    $("kodeFilterSelect").onchange = function(e){ ui.kodeFilter = e.target.value; render(); };
+    $("kodeFilterSelect").onchange = function(e){ ui.kodeFilter = e.target.value; ui.page = 1; render(); };
+
+    var prevBtns = document.querySelectorAll(".js-prev-page");
+    var nextBtns = document.querySelectorAll(".js-next-page");
+    var sizeSelects = document.querySelectorAll(".js-page-size");
+    prevBtns.forEach(function(b){ b.onclick = function(){ ui.page = Math.max(1, ui.page-1); render(); }; });
+    nextBtns.forEach(function(b){ b.onclick = function(){ ui.page = ui.page+1; render(); }; });
+    sizeSelects.forEach(function(sel){ sel.onchange = function(e){ ui.pageSize = Number(e.target.value); ui.page = 1; render(); }; });
+    document.querySelectorAll("[data-page]").forEach(function(btn){
+      btn.onclick = function(){ ui.page = Number(btn.getAttribute("data-page")); render(); };
+    });
 
     document.querySelectorAll("[data-edit]").forEach(function(btn){
       btn.onclick = function(){ ui.modal="surat"; ui.editingId = Number(btn.getAttribute("data-edit")); ui.formKodeId=null; render(); };
@@ -542,6 +630,7 @@
           save(S);
           var nomor = nomorSurat(S.counter, kodeId);
           ui.modal=null;
+          ui.page=1;
           showToast("Nomor "+nomor+" berhasil diterbitkan.");
         }
       };
@@ -768,6 +857,8 @@
     }
     if(!confirm("Menimpa seluruh data saat ini ("+S.surats.length+" surat) dengan isi file cadangan ("+data.surats.length+" surat)?")) return;
     S = data;
+    resortSurats();
+    ui.page = 1;
     save(S);
     showToast("Data berhasil dipulihkan dari cadangan.");
   }
@@ -861,6 +952,8 @@
     }
 
     if(maxUrutImpor > S.counter) S.counter = maxUrutImpor;
+    resortSurats();
+    ui.page = 1;
     save(S);
     render();
     showToast(ditambahkan+" surat diimpor"+(dilewati?", "+dilewati+" dilewati (sudah ada)":"")+".");
