@@ -554,8 +554,8 @@
         '</div>'+
         '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
           '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Sumber data Google Sheet (opsional)</p>'+
-          '<p class="hint" style="margin-bottom:10px;line-height:1.5">Supaya bisa "Refresh" mengikuti data terbaru tanpa impor manual: di Google Sheets, buka <b>File → Bagikan → Publikasikan ke web</b>, pilih sheet yang dipakai, format <b>CSV</b>, lalu tempel tautannya di sini.</p>'+
-          '<div class="field"><label>Tautan CSV Google Sheet</label><input type="text" id="setSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" value="'+esc(S.settings.googleSheetUrl||"")+'" /></div>'+
+          '<p class="hint" style="margin-bottom:10px;line-height:1.5">Tempel tautan <b>Bagikan</b> biasa dari Google Sheets — tidak perlu Publikasikan ke Web atau mengubah data master. Cukup: klik <b>Bagikan</b> di kanan atas sheet → ubah akses umum menjadi "Siapa saja yang memiliki tautan → Dapat melihat" → salin tautannya → tempel di sini.</p>'+
+          '<div class="field"><label>Tautan Google Sheet</label><input type="text" id="setSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/XXXXXXXX/edit" value="'+esc(S.settings.googleSheetUrl||"")+'" /></div>'+
           '<p class="error-text" id="sheetUrlError" style="display:none;margin-top:8px"></p>'+
           '<div class="form-actions" style="margin-top:10px">'+
             '<button class="btn-ghost" id="saveSheetUrlBtn">Simpan Tautan</button>'+
@@ -768,7 +768,7 @@
         var url = $("setSheetUrl").value.trim();
         var err = $("sheetUrlError");
         err.style.display = "none";
-        if(!url){ err.textContent="Isi tautan CSV terlebih dahulu."; err.style.display="block"; return; }
+        if(!url){ err.textContent="Isi tautan Google Sheet terlebih dahulu."; err.style.display="block"; return; }
         if(!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
           err.textContent = "Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...";
           err.style.display = "block";
@@ -930,36 +930,95 @@
     return k;
   }
 
+  function extractSheetId(url){
+    var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    return m ? m[1] : null;
+  }
+  function extractGid(url){
+    var m = url.match(/[#&?]gid=([0-9]+)/);
+    return m ? m[1] : "0";
+  }
+
+  /**
+   * Menerima tautan Google Sheets APA SAJA — tautan "Bagikan" biasa
+   * (…/edit?usp=sharing), tautan dengan #gid=…, atau tautan CSV langsung
+   * hasil "Publikasikan ke web" — dan mengembalikan daftar kandidat URL
+   * CSV yang bisa dicoba satu per satu. Ini menghindarkan pengguna dari
+   * harus mempublikasikan/mengubah pengaturan sheet master setiap kali.
+   */
+  function buildCandidateCsvUrls(rawUrl){
+    var url = rawUrl.trim();
+    if(/output=csv|format=csv|tqx=out:csv/.test(url)){
+      return [url];
+    }
+    var id = extractSheetId(url);
+    if(!id) return [];
+    var gid = extractGid(url);
+    return [
+      "https://docs.google.com/spreadsheets/d/"+id+"/export?format=csv&gid="+gid,
+      "https://docs.google.com/spreadsheets/d/"+id+"/gviz/tq?tqx=out:csv&gid="+gid
+    ];
+  }
+
+  function tryFetchCsv(urls, idx, timeoutMs, lastErr){
+    if(idx >= urls.length){
+      return Promise.reject(lastErr || new Error("Semua percobaan pengambilan data gagal."));
+    }
+    var hasAbort = typeof AbortController !== "undefined";
+    var controller = hasAbort ? new AbortController() : null;
+    var timer = controller ? setTimeout(function(){ controller.abort(); }, timeoutMs) : null;
+
+    return fetch(urls[idx], { cache:"no-store", signal: controller ? controller.signal : undefined })
+      .then(function(res){
+        if(timer) clearTimeout(timer);
+        if(!res.ok) throw new Error("HTTP "+res.status);
+        return res.text();
+      })
+      .then(function(text){
+        if(/^\s*<(!doctype|html)/i.test(text) || /accounts\.google\.com\/ServiceLogin/i.test(text)){
+          throw new Error("Sheet mengembalikan halaman login/HTML, bukan data — sheet belum bisa diakses publik.");
+        }
+        if(!text || !text.trim()){
+          throw new Error("Sheet mengembalikan data kosong.");
+        }
+        return text;
+      })
+      .catch(function(err){
+        if(timer) clearTimeout(timer);
+        return tryFetchCsv(urls, idx+1, timeoutMs, err);
+      });
+  }
+
   function refreshFromGoogleSheet(btn){
-    var url = (S.settings.googleSheetUrl||"").trim();
-    if(!url){
+    var raw = (S.settings.googleSheetUrl||"").trim();
+    if(!raw){
       alert('Tautan Google Sheet belum diatur.\n\nBuka "Kelola Kode" → bagian "Sumber data Google Sheet" untuk mengaturnya terlebih dahulu.');
       ui.modal = "kelola";
       render();
       return;
     }
 
+    var candidates = buildCandidateCsvUrls(raw);
+    if(!candidates.length){
+      alert('Tautan Google Sheet tidak dikenali.\n\nTempel tautan "Bagikan" biasa dari Google Sheets, contoh:\nhttps://docs.google.com/spreadsheets/d/XXXXXXXX/edit');
+      return;
+    }
+
     var originalLabel = btn ? btn.textContent : "";
     if(btn){ btn.textContent = "Memuat..."; btn.disabled = true; }
 
-    fetch(url, { cache:"no-store" })
-      .then(function(res){
-        if(!res.ok) throw new Error("Server merespons dengan status "+res.status);
-        return res.text();
-      })
+    tryFetchCsv(candidates, 0, 15000, null)
       .then(function(text){
-        if(/^\s*<(!doctype|html)/i.test(text)){
-          throw new Error("Tautan ini mengembalikan halaman HTML, bukan data CSV. Pastikan memakai tautan hasil \"Publikasikan ke web\" dengan format CSV.");
-        }
         importRowsLegacy(parseCsv(text));
       })
       .catch(function(err){
-        alert('Gagal mengambil data dari Google Sheet.\n\n'+
-          'Pastikan:\n'+
-          '1. Sheet sudah "Dipublikasikan ke web" (bukan sekadar dibagikan), dengan format CSV.\n'+
-          '2. Tautan yang dipakai adalah tautan hasil publikasi (mengandung "/pub?output=csv"), bukan tautan edit biasa.\n'+
-          '3. Perangkat ini terhubung ke internet.\n\n'+
-          'Detail teknis: '+err.message);
+        var isTimeout = err && err.name === "AbortError";
+        alert('Gagal mengambil data dari Google Sheet'+(isTimeout ? ' (waktu tunggu habis, koneksi terlalu lambat)' : '')+'.\n\n'+
+          'Kemungkinan penyebab:\n'+
+          '1. Sheet belum dibagikan sebagai "Siapa saja yang memiliki tautan → Dapat melihat" (klik Bagikan di Google Sheets, lalu ubah akses umum).\n'+
+          '2. Tautan yang ditempel salah, sudah tidak berlaku, atau bukan tautan Google Sheets.\n'+
+          '3. Perangkat ini sedang tidak terhubung ke internet.\n\n'+
+          'Detail teknis: '+(err && err.message ? err.message : String(err)));
       })
       .then(function(){
         if(btn){ btn.textContent = originalLabel; btn.disabled = false; }
