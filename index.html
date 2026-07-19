@@ -135,6 +135,15 @@
     .pagination-controls{ justify-content:center; flex-wrap:wrap; }
   }
 
+  .login-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .login-card{ background:#fff; border-radius:16px; width:100%; max-width:380px; padding:32px 28px; box-shadow:0 20px 60px rgba(20,38,74,.18); border:1px solid var(--ink-100); }
+  .login-brand{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:24px; }
+  .login-brand .brand-mark{ background:rgba(201,138,46,.92); border:1.5px dashed rgba(201,138,46,.55); color:var(--ink-900); margin-bottom:12px; }
+  .login-brand h1{ font-size:18px; margin:0; font-weight:800; color:var(--ink-900); }
+  .login-brand p{ margin:4px 0 0; font-size:12.5px; color:var(--ink-400); }
+  .login-card .field{ margin-bottom:16px; }
+  .login-card button[type=submit]{ width:100%; padding:12px; border-radius:8px; font-weight:700; font-size:13.5px; cursor:pointer; }
+
   @media (max-width:760px){
     .wrap{ padding:0 16px; }
     body{ font-size:13.5px; }
@@ -172,35 +181,58 @@
   "use strict";
 
   var STORE_KEY = "simoris_data_v1";
+  var AUTH_KEY = "simoris_authed_v1";
+  var PW_HASH_KEY = "simoris_pw_hash_v1";
+  // Hash dari kata sandi bawaan "simoris2026" — GANTI setelah login pertama
+  // lewat "Kelola Kode" → "Ubah kata sandi akses".
+  var DEFAULT_PW_HASH = "ca861d55";
+
+  // Hash sederhana (djb2), BUKAN kriptografi kuat — ini hanya gerbang akses
+  // dasar agar orang tidak sembarangan membuka aplikasi, bukan proteksi
+  // untuk data sangat rahasia (aplikasi ini 100% berjalan di peramban,
+  // sehingga siapa pun yang punya akses fisik + alat developer browser
+  // pada akhirnya tetap bisa melihat data yang tersimpan).
+  function simpleHash(str){
+    var hash = 5381;
+    for(var i=0;i<str.length;i++){
+      hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+    }
+    return hash.toString(16);
+  }
+  function getStoredPwHash(){
+    try{ return localStorage.getItem(PW_HASH_KEY) || DEFAULT_PW_HASH; }catch(e){ return DEFAULT_PW_HASH; }
+  }
+  function setStoredPwHash(hash){
+    try{ localStorage.setItem(PW_HASH_KEY, hash); }catch(e){ /* storage unavailable */ }
+  }
+  function isAuthed(){
+    try{ return localStorage.getItem(AUTH_KEY) === "1"; }catch(e){ return false; }
+  }
+  function setAuthed(v){
+    try{ localStorage.setItem(AUTH_KEY, v ? "1" : "0"); }catch(e){ /* storage unavailable */ }
+  }
 
   var WARNA_CLASS = {
     blue:"badge-blue", green:"badge-green", emerald:"badge-emerald",
     amber:"badge-amber", violet:"badge-violet", red:"badge-red", slate:"badge-slate"
   };
 
+  // Klasifikasi sengaja dibuat MINIMAL secara bawaan — hanya 1 kode contoh.
+  // Kode klasifikasi ditambahkan secara manual lewat "Kelola Kode" sesuai
+  // kebutuhan kantor masing-masing. Yang otomatis hanyalah deret nomor
+  // urut di belakang (mis. ...-001, ...-002, dst).
   var DEFAULT_KODE = [
-    { id:1,  kode:"KP", nama:"Kepegawaian", warna:"blue", aktif:true },
-    { id:2,  kode:"KU", nama:"Keuangan", warna:"green", aktif:true },
-    { id:3,  kode:"UM", nama:"Umum", warna:"emerald", aktif:true },
-    { id:4,  kode:"HK", nama:"Hukum", warna:"red", aktif:true },
-    { id:5,  kode:"OT", nama:"Organisasi dan Tata Laksana", warna:"slate", aktif:true },
-    { id:6,  kode:"PL", nama:"Perlengkapan", warna:"amber", aktif:true },
-    { id:7,  kode:"HM", nama:"Hubungan Masyarakat", warna:"violet", aktif:true },
-    { id:8,  kode:"IN", nama:"Informatika", warna:"blue", aktif:true },
-    { id:9,  kode:"PR", nama:"Perencanaan", warna:"emerald", aktif:true },
-    { id:10, kode:"PW", nama:"Pengawasan", warna:"red", aktif:true },
-    { id:11, kode:"DL", nama:"Pendidikan dan Pelatihan", warna:"amber", aktif:true }
+    { id:1, kode:"UM", nama:"Umum", warna:"emerald", aktif:true }
   ];
 
   function defaultState(){
     return {
-      settings: { instansiKode:"W.9", digit:3 },
-      counter: 3,
+      settings: { instansiKode:"W.9", digit:3, googleSheetUrl:"" },
+      counter: 2,
       kodeList: DEFAULT_KODE,
       surats: [
-        { id:1, urut:1, kodeId:3, tujuan:"Rizani", perihal:"Surat Undangan Rapat Koordinasi", tanggal:isoToday(-2), dibuatOleh:"" },
-        { id:2, urut:2, kodeId:1, tujuan:"Yunita", perihal:"PAK Konversi Jabatan Fungsional", tanggal:isoToday(-1), dibuatOleh:"" },
-        { id:3, urut:3, kodeId:6, tujuan:"", perihal:"Pengadaan ATK Triwulan I", tanggal:isoToday(0), dibuatOleh:"" }
+        { id:1, urut:1, kodeId:1, tujuan:"Rizani", perihal:"Surat Undangan Rapat Koordinasi", tanggal:isoToday(-1), dibuatOleh:"" },
+        { id:2, urut:2, kodeId:1, tujuan:"", perihal:"Pengadaan ATK Triwulan I", tanggal:isoToday(0), dibuatOleh:"" }
       ],
       seeded:true
     };
@@ -224,6 +256,8 @@
   }
 
   var S = load();
+  if(!S.settings) S.settings = { instansiKode:"W.9", digit:3, googleSheetUrl:"" };
+  if(typeof S.settings.googleSheetUrl === "undefined") S.settings.googleSheetUrl = "";
   resortSurats();
   var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null, page:1, pageSize:50 };
 
@@ -305,6 +339,7 @@
         '<div class="count-box"><p>Surat tercatat</p><strong class="mono">'+String(S.surats.length).padStart(3,"0")+'</strong></div>'+
         '<button class="btn btn-ghost" id="btnKelola" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.25)">Kelola Kode</button>'+
         '<button class="btn btn-segel" id="btnTambah">+ Terbitkan Nomor</button>'+
+        '<button class="btn btn-ghost" id="btnLogout" style="background:transparent;color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.25);padding:10px 12px" title="Keluar">Keluar</button>'+
       '</div>'+
     '</div></header>';
   }
@@ -321,6 +356,7 @@
       '</div>'+
       '<select id="kodeFilterSelect"><option value="">Semua kode klasifikasi</option>'+opts+'</select>'+
       '<div class="toolbar-right">'+
+        '<button class="btn btn-segel" id="btnRefreshSheet">Refresh Google Sheet</button>'+
         '<button class="btn btn-ghost" id="btnImport">Impor Excel/CSV</button>'+
         '<input type="file" id="importFileInput" accept=".json,.csv,.xlsx,.xls" class="visually-hidden" />'+
         '<button class="btn btn-ghost" id="btnExcel">Unduh Excel</button>'+
@@ -497,13 +533,13 @@
     return '<div class="overlay" id="kelolaOverlay"><div class="modal">'+
       '<div class="modal-head"><h2>Kelola Kode Klasifikasi</h2><button class="modal-close" id="closeKelolaModal">&times;</button></div>'+
       '<div class="modal-body">'+
-        '<div class="banner">Kode di bawah mengikuti kode masalah fasilitatif yang umum dipakai di lingkungan Kementerian Hukum (KP, KU, UM, HK, dst). Sub-nomor (mis. KP.10.02) berbeda tiap kantor sesuai lampiran resmi masing-masing — sesuaikan atau tambahkan manual di bawah.</div>'+
+        '<div class="banner">Kode klasifikasi ditambahkan manual sesuai kebutuhan kantor Anda. Yang otomatis hanya deret nomor urut di belakang (mis. ...-001, ...-002, dst).</div>'+
         '<div>'+rows+'</div>'+
         '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
           '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Tambah kode manual</p>'+
           '<div class="grid2">'+
-            '<div class="field"><label>Kode</label><input type="text" id="newKodeKode" placeholder="mis. KP.10.02" /></div>'+
-            '<div class="field"><label>Nama</label><input type="text" id="newKodeNama" placeholder="mis. Kepegawaian - PAK" /></div>'+
+            '<div class="field"><label>Kode</label><input type="text" id="newKodeKode" placeholder="mis. KP atau KP.10.02" /></div>'+
+            '<div class="field"><label>Nama</label><input type="text" id="newKodeNama" placeholder="mis. Kepegawaian" /></div>'+
           '</div>'+
           '<p class="error-text" id="kodeError" style="display:none;margin-top:8px"></p>'+
           '<button class="btn-dark" id="addKodeBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">+ Tambah Kode</button>'+
@@ -515,6 +551,26 @@
             '<div class="field" style="width:110px"><label>Digit Nomor</label><input type="number" min="1" max="6" id="setDigit" value="'+S.settings.digit+'" /></div>'+
           '</div>'+
           '<button class="btn-ghost" id="saveSettingsBtn" style="width:100%;margin-top:8px;padding:10px;border-radius:8px">Simpan Pengaturan</button>'+
+        '</div>'+
+        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
+          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Sumber data Google Sheet (opsional)</p>'+
+          '<p class="hint" style="margin-bottom:10px;line-height:1.5">Tempel tautan <b>Bagikan</b> biasa dari Google Sheets — tidak perlu Publikasikan ke Web atau mengubah data master. Cukup: klik <b>Bagikan</b> di kanan atas sheet → ubah akses umum menjadi "Siapa saja yang memiliki tautan → Dapat melihat" → salin tautannya → tempel di sini.</p>'+
+          '<div class="field"><label>Tautan Google Sheet</label><input type="text" id="setSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/XXXXXXXX/edit" value="'+esc(S.settings.googleSheetUrl||"")+'" /></div>'+
+          '<p class="error-text" id="sheetUrlError" style="display:none;margin-top:8px"></p>'+
+          '<div class="form-actions" style="margin-top:10px">'+
+            '<button class="btn-ghost" id="saveSheetUrlBtn">Simpan Tautan</button>'+
+            '<button class="btn-dark" id="testRefreshBtn">Simpan &amp; Refresh Sekarang</button>'+
+          '</div>'+
+        '</div>'+
+        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
+          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Ubah kata sandi akses</p>'+
+          '<div class="field"><label>Kata sandi saat ini</label><input type="password" id="pwOld" placeholder="Kata sandi saat ini" /></div>'+
+          '<div class="grid2" style="margin-top:10px">'+
+            '<div class="field"><label>Kata sandi baru</label><input type="password" id="pwNew" placeholder="Minimal 4 karakter" /></div>'+
+            '<div class="field"><label>Ulangi kata sandi baru</label><input type="password" id="pwNewConfirm" placeholder="Ulangi kata sandi baru" /></div>'+
+          '</div>'+
+          '<p class="error-text" id="pwError" style="display:none;margin-top:8px"></p>'+
+          '<button class="btn-dark" id="changePwBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">Ubah Kata Sandi</button>'+
         '</div>'+
       '</div></div></div>';
   }
@@ -538,11 +594,17 @@
 
     $("btnTambah").onclick = function(){ ui.modal="surat"; ui.editingId=null; ui.formKodeId=null; render(); };
     $("btnKelola").onclick = function(){ ui.modal="kelola"; render(); };
+    $("btnLogout").onclick = function(){
+      if(!confirm("Keluar dari SIMORIS? Anda perlu memasukkan kata sandi lagi untuk membuka kembali.")) return;
+      setAuthed(false);
+      renderLogin();
+    };
     $("btnCsv").onclick = exportCsv;
     $("btnExcel").onclick = exportExcel;
     $("btnJson").onclick = exportJson;
     $("btnPrint").onclick = function(){ window.print(); };
     $("btnImport").onclick = function(){ $("importFileInput").click(); };
+    $("btnRefreshSheet").onclick = function(){ refreshFromGoogleSheet($("btnRefreshSheet")); };
     $("importFileInput").onchange = function(e){
       var file = e.target.files[0];
       if(!file) return;
@@ -687,6 +749,56 @@
         save(S);
         showToast("Pengaturan disimpan.");
       };
+
+      $("saveSheetUrlBtn").onclick = function(){
+        var url = $("setSheetUrl").value.trim();
+        var err = $("sheetUrlError");
+        err.style.display = "none";
+        if(url && !/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
+          err.textContent = "Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...";
+          err.style.display = "block";
+          return;
+        }
+        S.settings.googleSheetUrl = url;
+        save(S);
+        showToast(url ? "Tautan Google Sheet disimpan." : "Tautan Google Sheet dikosongkan.");
+      };
+
+      $("testRefreshBtn").onclick = function(){
+        var url = $("setSheetUrl").value.trim();
+        var err = $("sheetUrlError");
+        err.style.display = "none";
+        if(!url){ err.textContent="Isi tautan Google Sheet terlebih dahulu."; err.style.display="block"; return; }
+        if(!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
+          err.textContent = "Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...";
+          err.style.display = "block";
+          return;
+        }
+        S.settings.googleSheetUrl = url;
+        save(S);
+        closeKelolaModal();
+        refreshFromGoogleSheet(null);
+      };
+
+      $("changePwBtn").onclick = function(){
+        var oldPw = $("pwOld").value;
+        var newPw = $("pwNew").value;
+        var confirmPw = $("pwNewConfirm").value;
+        var err = $("pwError");
+        err.style.display = "none";
+        if(simpleHash(oldPw) !== getStoredPwHash()){
+          err.textContent = "Kata sandi saat ini salah."; err.style.display="block"; return;
+        }
+        if(newPw.length < 4){
+          err.textContent = "Kata sandi baru minimal 4 karakter."; err.style.display="block"; return;
+        }
+        if(newPw !== confirmPw){
+          err.textContent = "Konfirmasi kata sandi baru tidak cocok."; err.style.display="block"; return;
+        }
+        setStoredPwHash(simpleHash(newPw));
+        $("pwOld").value = ""; $("pwNew").value = ""; $("pwNewConfirm").value = "";
+        showToast("Kata sandi berhasil diubah.");
+      };
     }
   }
 
@@ -816,6 +928,101 @@
     var k = { id:uid(), kode:kodeStr, nama:"Impor otomatis", warna:warnaCycle[S.kodeList.length % warnaCycle.length], aktif:true };
     S.kodeList.push(k);
     return k;
+  }
+
+  function extractSheetId(url){
+    var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    return m ? m[1] : null;
+  }
+  function extractGid(url){
+    var m = url.match(/[#&?]gid=([0-9]+)/);
+    return m ? m[1] : "0";
+  }
+
+  /**
+   * Menerima tautan Google Sheets APA SAJA — tautan "Bagikan" biasa
+   * (…/edit?usp=sharing), tautan dengan #gid=…, atau tautan CSV langsung
+   * hasil "Publikasikan ke web" — dan mengembalikan daftar kandidat URL
+   * CSV yang bisa dicoba satu per satu. Ini menghindarkan pengguna dari
+   * harus mempublikasikan/mengubah pengaturan sheet master setiap kali.
+   */
+  function buildCandidateCsvUrls(rawUrl){
+    var url = rawUrl.trim();
+    if(/output=csv|format=csv|tqx=out:csv/.test(url)){
+      return [url];
+    }
+    var id = extractSheetId(url);
+    if(!id) return [];
+    var gid = extractGid(url);
+    return [
+      "https://docs.google.com/spreadsheets/d/"+id+"/export?format=csv&gid="+gid,
+      "https://docs.google.com/spreadsheets/d/"+id+"/gviz/tq?tqx=out:csv&gid="+gid
+    ];
+  }
+
+  function tryFetchCsv(urls, idx, timeoutMs, lastErr){
+    if(idx >= urls.length){
+      return Promise.reject(lastErr || new Error("Semua percobaan pengambilan data gagal."));
+    }
+    var hasAbort = typeof AbortController !== "undefined";
+    var controller = hasAbort ? new AbortController() : null;
+    var timer = controller ? setTimeout(function(){ controller.abort(); }, timeoutMs) : null;
+
+    return fetch(urls[idx], { cache:"no-store", signal: controller ? controller.signal : undefined })
+      .then(function(res){
+        if(timer) clearTimeout(timer);
+        if(!res.ok) throw new Error("HTTP "+res.status);
+        return res.text();
+      })
+      .then(function(text){
+        if(/^\s*<(!doctype|html)/i.test(text) || /accounts\.google\.com\/ServiceLogin/i.test(text)){
+          throw new Error("Sheet mengembalikan halaman login/HTML, bukan data — sheet belum bisa diakses publik.");
+        }
+        if(!text || !text.trim()){
+          throw new Error("Sheet mengembalikan data kosong.");
+        }
+        return text;
+      })
+      .catch(function(err){
+        if(timer) clearTimeout(timer);
+        return tryFetchCsv(urls, idx+1, timeoutMs, err);
+      });
+  }
+
+  function refreshFromGoogleSheet(btn){
+    var raw = (S.settings.googleSheetUrl||"").trim();
+    if(!raw){
+      alert('Tautan Google Sheet belum diatur.\n\nBuka "Kelola Kode" → bagian "Sumber data Google Sheet" untuk mengaturnya terlebih dahulu.');
+      ui.modal = "kelola";
+      render();
+      return;
+    }
+
+    var candidates = buildCandidateCsvUrls(raw);
+    if(!candidates.length){
+      alert('Tautan Google Sheet tidak dikenali.\n\nTempel tautan "Bagikan" biasa dari Google Sheets, contoh:\nhttps://docs.google.com/spreadsheets/d/XXXXXXXX/edit');
+      return;
+    }
+
+    var originalLabel = btn ? btn.textContent : "";
+    if(btn){ btn.textContent = "Memuat..."; btn.disabled = true; }
+
+    tryFetchCsv(candidates, 0, 15000, null)
+      .then(function(text){
+        importRowsLegacy(parseCsv(text));
+      })
+      .catch(function(err){
+        var isTimeout = err && err.name === "AbortError";
+        alert('Gagal mengambil data dari Google Sheet'+(isTimeout ? ' (waktu tunggu habis, koneksi terlalu lambat)' : '')+'.\n\n'+
+          'Kemungkinan penyebab:\n'+
+          '1. Sheet belum dibagikan sebagai "Siapa saja yang memiliki tautan → Dapat melihat" (klik Bagikan di Google Sheets, lalu ubah akses umum).\n'+
+          '2. Tautan yang ditempel salah, sudah tidak berlaku, atau bukan tautan Google Sheets.\n'+
+          '3. Perangkat ini sedang tidak terhubung ke internet.\n\n'+
+          'Detail teknis: '+(err && err.message ? err.message : String(err)));
+      })
+      .then(function(){
+        if(btn){ btn.textContent = originalLabel; btn.disabled = false; }
+      });
   }
 
   function handleImportedText(text, filename){
@@ -959,7 +1166,42 @@
     showToast(ditambahkan+" surat diimpor"+(dilewati?", "+dilewati+" dilewati (sudah ada)":"")+".");
   }
 
-  render();
+  // ---------------- layar login ----------------
+
+  function renderLogin(errorMsg){
+    document.getElementById("app").innerHTML =
+      '<div class="login-wrap"><div class="login-card">'+
+        '<div class="login-brand">'+
+          '<div class="brand-mark">№</div>'+
+          '<h1>SIMORIS</h1>'+
+          '<p>Masuk untuk mengakses sistem penomoran surat</p>'+
+        '</div>'+
+        '<form id="loginForm">'+
+          '<div class="field"><label>Kata Sandi</label><input type="password" id="loginPw" autofocus placeholder="Masukkan kata sandi" /></div>'+
+          (errorMsg ? '<p class="error-text" style="margin-bottom:14px">'+esc(errorMsg)+'</p>' : '')+
+          '<button type="submit" class="btn-dark">Masuk</button>'+
+        '</form>'+
+      '</div></div>';
+
+    var form = document.getElementById("loginForm");
+    var pwInput = document.getElementById("loginPw");
+    pwInput.focus();
+    form.onsubmit = function(e){
+      e.preventDefault();
+      if(simpleHash(pwInput.value) === getStoredPwHash()){
+        setAuthed(true);
+        render();
+      } else {
+        renderLogin("Kata sandi salah. Coba lagi.");
+      }
+    };
+  }
+
+  if(isAuthed()){
+    render();
+  } else {
+    renderLogin();
+  }
 })();
 </script>
 </body>
