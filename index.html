@@ -93,7 +93,7 @@
   .badge-violet{ background:var(--violet-bg); color:var(--violet); }
   .badge-red{ background:var(--red-bg); color:var(--red); }
   .badge-slate{ background:#eef1f5; color:#475569; }
-  footer.app-footer{ text-align:center; padding:24px; color:var(--ink-400); font-size:12px; }
+  footer.app-footer{ text-align:center; padding:24px; color:var(--ink-400); font-size:12px; line-height:1.8; }
   .banner{ background:#fff8ec; border:1px solid #f0dbb0; color:#8a5a12; font-size:12px; padding:10px 14px; border-radius:10px; margin-bottom:16px; line-height:1.5; }
   .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
 
@@ -143,6 +143,9 @@
   .login-brand p{ margin:4px 0 0; font-size:12.5px; color:var(--ink-400); }
   .login-card .field{ margin-bottom:16px; }
   .login-card button[type=submit]{ width:100%; padding:12px; border-radius:8px; font-weight:700; font-size:13.5px; cursor:pointer; }
+
+  .danger-zone{ border:1px solid rgba(179,65,58,.35); background:#fef4f3; border-radius:10px; padding:14px; }
+  .code-snippet{ width:100%; font-family:var(--font-mono); font-size:11px; line-height:1.5; padding:10px; border-radius:8px; border:1px solid var(--ink-100); background:var(--paper); resize:vertical; color:var(--ink-800); }
 
   @media (max-width:760px){
     .wrap{ padding:0 16px; }
@@ -221,13 +224,30 @@
   // Kode klasifikasi ditambahkan secara manual lewat "Kelola Kode" sesuai
   // kebutuhan kantor masing-masing. Yang otomatis hanyalah deret nomor
   // urut di belakang (mis. ...-001, ...-002, dst).
+  // Kode Google Apps Script siap-tempel supaya surat yang diterbitkan dari
+  // SIMORIS bisa ikut tercatat otomatis di Google Sheet (fitur tulis-balik,
+  // opsional). Ditampilkan di panel "Kelola Kode" untuk disalin pengguna.
+  var APPS_SCRIPT_SNIPPET =
+    'function doGet(e) {\n' +
+    '  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
+    '  var p = e.parameter;\n' +
+    '  sheet.appendRow([\n' +
+    '    sheet.getLastRow(),   // NO — sesuaikan urutan kolom kalau beda\n' +
+    '    p.tujuan  || "",      // TUJUAN SURAT\n' +
+    '    p.tanggal || "",      // TANGGAL SURAT\n' +
+    '    p.perihal || "",      // PERIHAL\n' +
+    '    p.nomor   || ""       // NOMOR SURAT KELUAR / SURAT PERINTAH\n' +
+    '  ]);\n' +
+    '  return ContentService.createTextOutput("OK");\n' +
+    '}';
+
   var DEFAULT_KODE = [
     { id:1, kode:"UM", nama:"Umum", warna:"emerald", aktif:true }
   ];
 
   function defaultState(){
     return {
-      settings: { instansiKode:"W.9", digit:3, googleSheetUrl:"" },
+      settings: { instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" },
       counter: 2,
       kodeList: DEFAULT_KODE,
       surats: [
@@ -256,10 +276,11 @@
   }
 
   var S = load();
-  if(!S.settings) S.settings = { instansiKode:"W.9", digit:3, googleSheetUrl:"" };
+  if(!S.settings) S.settings = { instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" };
   if(typeof S.settings.googleSheetUrl === "undefined") S.settings.googleSheetUrl = "";
+  if(typeof S.settings.appsScriptUrl === "undefined") S.settings.appsScriptUrl = "";
   resortSurats();
-  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null, page:1, pageSize:50 };
+  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null, page:1, pageSize:50, confirmMessage:"", confirmOnYes:null, noticeTitle:"", noticeMessage:"" };
 
   function kodeOf(id){
     for(var i=0;i<S.kodeList.length;i++){ if(S.kodeList[i].id===id) return S.kodeList[i]; }
@@ -271,6 +292,14 @@
     var kodeStr = k ? k.kode : "?";
     var padded = String(urut).padStart(S.settings.digit, "0");
     return S.settings.instansiKode + "-" + kodeStr + "-" + padded;
+  }
+  // Nomor yang DITAMPILKAN: kalau berasal dari impor/sinkron Google Sheet
+  // dan sudah ada teks nomor asli di sumbernya (nomorOverride), pakai teks
+  // itu APA ADANYA — jangan direkonstruksi — supaya selalu identik dengan
+  // yang tertulis di sumber datanya. Hanya surat yang diterbitkan langsung
+  // dari SIMORIS yang nomornya dihitung otomatis dari kode+urut.
+  function displayNomor(s){
+    return s.nomorOverride || nomorSurat(s.urut, s.kodeId);
   }
   function fmtTanggal(iso){
     if(!iso) return "—";
@@ -298,7 +327,7 @@
     return S.surats.filter(function(s){
       var matchSearch = true;
       if(searchLower){
-        var hay = (s.perihal+" "+s.tujuan+" "+nomorSurat(s.urut,s.kodeId)).toLowerCase();
+        var hay = (s.perihal+" "+s.tujuan+" "+displayNomor(s)).toLowerCase();
         matchSearch = hay.indexOf(searchLower) > -1;
       }
       var matchKode = !ui.kodeFilter || String(s.kodeId) === ui.kodeFilter;
@@ -383,7 +412,7 @@
       var warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
       return '<tr class="row-clickable" data-row-detail="'+s.id+'">'+
         '<td class="mono" style="color:var(--ink-400)">'+s.urut+'</td>'+
-        '<td><span class="nomor-badge mono">'+esc(nomorSurat(s.urut,s.kodeId))+'</span></td>'+
+        '<td><span class="nomor-badge mono">'+esc(displayNomor(s))+'</span></td>'+
         '<td style="white-space:nowrap;color:var(--ink-600)">'+fmtTanggal(s.tanggal)+'</td>'+
         '<td>'+esc(s.tujuan||"—")+'</td>'+
         '<td class="truncate" title="'+esc(s.perihal)+'">'+esc(s.perihal)+'</td>'+
@@ -405,7 +434,7 @@
       var warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
       return '<div class="surat-card row-clickable" data-row-detail="'+s.id+'">'+
         '<div class="surat-card-top">'+
-          '<span class="nomor-badge mono">'+esc(nomorSurat(s.urut,s.kodeId))+'</span>'+
+          '<span class="nomor-badge mono">'+esc(displayNomor(s))+'</span>'+
           (k?'<span class="badge '+warnaCls+'">'+esc(k.kode)+'</span>':'')+
         '</div>'+
         '<p class="surat-card-perihal">'+esc(s.perihal)+'</p>'+
@@ -460,7 +489,12 @@
     var editing = ui.editingId ? S.surats.filter(function(s){return s.id===ui.editingId;})[0] : null;
     var kodeId = ui.formKodeId || (editing ? editing.kodeId : (aktifKode()[0] && aktifKode()[0].id));
     var previewUrut = editing ? editing.urut : (S.counter + 1);
-    var preview = kodeId ? nomorSurat(previewUrut, kodeId) : "—";
+    var preview;
+    if(editing && !ui.formKodeId && editing.nomorOverride){
+      preview = editing.nomorOverride;
+    } else {
+      preview = kodeId ? nomorSurat(previewUrut, kodeId) : "—";
+    }
     var opsiKode = aktifKode();
     if(editing){
       var kodeEditing = kodeOf(editing.kodeId);
@@ -492,6 +526,54 @@
       '</div></div></div>';
   }
 
+  // ---------------- dialog kustom (pengganti alert/confirm bawaan browser) ----------------
+  // Browser bisa MEMATIKAN alert()/confirm() bawaan secara diam-diam kalau
+  // muncul berkali-kali dalam waktu singkat ("Prevent this page from
+  // creating additional dialogs"). Begitu itu terjadi, SEMUA pemanggilan
+  // alert/confirm berikutnya di halaman — termasuk yang tidak berkaitan —
+  // ikut tidak berfungsi. Karena itu semua dialog di aplikasi ini dibuat
+  // sendiri (bukan bawaan browser) supaya tidak pernah terkena masalah ini.
+
+  function showConfirm(message, onYes){
+    ui.modal = "confirm";
+    ui.confirmMessage = message;
+    ui.confirmOnYes = onYes;
+    render();
+  }
+
+  function showNotice(title, message){
+    ui.modal = "notice";
+    ui.noticeTitle = title || "Pemberitahuan";
+    ui.noticeMessage = message;
+    render();
+  }
+
+  function multiline(str){
+    return esc(str).replace(/\n/g, "<br>");
+  }
+
+  function renderConfirmModal(){
+    if(ui.modal !== "confirm") return "";
+    return '<div class="overlay" id="confirmOverlay"><div class="modal" style="max-width:400px">'+
+      '<div class="modal-body" style="padding-top:26px">'+
+        '<p style="font-size:14px;line-height:1.55;margin:0 0 20px">'+multiline(ui.confirmMessage)+'</p>'+
+        '<div class="form-actions">'+
+          '<button class="btn-ghost" id="confirmNoBtn">Batal</button>'+
+          '<button class="btn-dark" id="confirmYesBtn">Ya, Lanjutkan</button>'+
+        '</div>'+
+      '</div></div></div>';
+  }
+
+  function renderNoticeModal(){
+    if(ui.modal !== "notice") return "";
+    return '<div class="overlay" id="noticeOverlay"><div class="modal" style="max-width:420px">'+
+      '<div class="modal-head"><h2>'+esc(ui.noticeTitle)+'</h2><button class="modal-close" id="noticeCloseBtn2">&times;</button></div>'+
+      '<div class="modal-body">'+
+        '<p style="font-size:13.5px;line-height:1.6;margin:0">'+multiline(ui.noticeMessage)+'</p>'+
+        '<button class="btn-dark" id="noticeCloseBtn" style="width:100%;padding:11px;border-radius:8px;font-weight:700;cursor:pointer">Tutup</button>'+
+      '</div></div></div>';
+  }
+
   function renderDetailModal(){
     if(ui.modal !== "detail") return "";
     var s = S.surats.filter(function(x){return x.id===ui.detailId;})[0];
@@ -505,7 +587,7 @@
     return '<div class="overlay" id="detailOverlay"><div class="modal">'+
       '<div class="modal-head"><h2>Detail Surat</h2><button class="modal-close" id="closeDetailModal">&times;</button></div>'+
       '<div class="modal-body">'+
-        '<div class="detail-hero"><span class="nomor-badge mono">'+esc(nomorSurat(s.urut,s.kodeId))+'</span></div>'+
+        '<div class="detail-hero"><span class="nomor-badge mono">'+esc(displayNomor(s))+'</span></div>'+
         '<div class="detail-grid">'+
           baris('Kode Klasifikasi', k ? (esc(k.kode)+' — '+esc(k.nama)) : '—')+
           baris('Tanggal Surat', fmtTanggal(s.tanggal))+
@@ -572,6 +654,37 @@
           '<p class="error-text" id="pwError" style="display:none;margin-top:8px"></p>'+
           '<button class="btn-dark" id="changePwBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">Ubah Kata Sandi</button>'+
         '</div>'+
+        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
+          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Tulis balik ke Google Sheet (opsional)</p>'+
+          '<p class="hint" style="margin-bottom:10px;line-height:1.5">Supaya surat yang diterbitkan LANGSUNG dari SIMORIS ikut tercatat otomatis di sheet: buka sheet Anda → <b>Extensions → Apps Script</b> → tempel kode di bawah → <b>Deploy → New deployment → Web app</b> (Execute as: Me, Who has access: Anyone) → salin URL yang diberikan ke kolom di bawah.</p>'+
+          '<textarea class="code-snippet" readonly rows="9" onclick="this.select()">'+esc(APPS_SCRIPT_SNIPPET)+'</textarea>'+
+          '<div class="field" style="margin-top:10px"><label>URL Web App Apps Script</label><input type="text" id="setAppsScriptUrl" placeholder="https://script.google.com/macros/s/XXXXX/exec" value="'+esc(S.settings.appsScriptUrl||"")+'" /></div>'+
+          '<p class="error-text" id="appsScriptError" style="display:none;margin-top:8px"></p>'+
+          '<p class="hint" style="margin-top:8px">Catatan: hanya surat yang <b>diterbitkan baru</b> dari SIMORIS yang dikirim ke sheet. Perubahan/hapus di SIMORIS maupun sinkron dari sheet tidak dikirim balik (mencegah data saling menimpa).</p>'+
+          '<button class="btn-ghost" id="saveAppsScriptBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">Simpan URL Tulis-Balik</button>'+
+        '</div>'+
+        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
+          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--red);text-transform:uppercase;font-size:11px">Zona Bahaya</p>'+
+          '<div class="danger-zone">'+
+            '<p style="font-size:12.5px;color:var(--ink-600);margin:0 0 10px;line-height:1.5">Menghapus SEMUA data surat ('+S.surats.length+' surat) secara permanen dari perangkat ini. Kode klasifikasi dan pengaturan tidak ikut terhapus.</p>'+
+            '<button id="btnHapusSemua" style="width:100%;padding:10px;border-radius:8px;font-weight:700;cursor:pointer;background:var(--red);color:#fff;border:none">Hapus Semua Data Surat</button>'+
+          '</div>'+
+        '</div>'+
+      '</div></div></div>';
+  }
+
+  function renderHapusSemuaModal(){
+    if(ui.modal !== "hapusSemua") return "";
+    return '<div class="overlay" id="hapusSemuaOverlay"><div class="modal" style="max-width:420px">'+
+      '<div class="modal-head"><h2 style="color:var(--red)">Hapus Semua Data Surat</h2><button class="modal-close" id="closeHapusSemuaModal">&times;</button></div>'+
+      '<div class="modal-body">'+
+        '<p style="font-size:13.5px;line-height:1.6;margin:0 0 14px">Tindakan ini akan menghapus <b>'+S.surats.length+' data surat</b> secara PERMANEN dari perangkat ini dan tidak dapat dibatalkan. Kode klasifikasi dan pengaturan tetap tersimpan.</p>'+
+        '<p style="font-size:12.5px;color:var(--ink-600);margin:0 0 8px">Ketik <b class="mono">HAPUS SEMUA</b> untuk mengonfirmasi:</p>'+
+        '<input type="text" id="hapusSemuaConfirmText" placeholder="Ketik di sini" autocomplete="off" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--ink-100);font-size:13px" />'+
+        '<div class="form-actions" style="margin-top:16px">'+
+          '<button class="btn-ghost" id="cancelHapusSemuaBtn">Batal</button>'+
+          '<button id="confirmHapusSemuaBtn" disabled style="flex:1;padding:11px;border-radius:8px;font-weight:700;cursor:not-allowed;background:var(--ink-100);color:var(--ink-400);border:none">Hapus Permanen</button>'+
+        '</div>'+
       '</div></div></div>';
   }
 
@@ -582,9 +695,9 @@
   function render(){
     var html = renderHeader() +
       '<main class="wrap">' + renderToolbar() + renderStorageBanner() + renderTable() + '</main>' +
-      renderSuratModal() + renderKelolaModal() + renderDetailModal() +
+      renderSuratModal() + renderKelolaModal() + renderDetailModal() + renderConfirmModal() + renderNoticeModal() + renderHapusSemuaModal() +
       (ui.toast ? '<div class="toast">'+esc(ui.toast)+'</div>' : '') +
-      '<footer class="app-footer">SIMORIS &middot; data tersimpan di peramban perangkat ini</footer>';
+      '<footer class="app-footer">SIMORIS &middot; data tersimpan di peramban perangkat ini<br>Dibuat oleh IT Pokja SDM</footer>';
     document.getElementById("app").innerHTML = html;
     bind();
   }
@@ -595,9 +708,10 @@
     $("btnTambah").onclick = function(){ ui.modal="surat"; ui.editingId=null; ui.formKodeId=null; render(); };
     $("btnKelola").onclick = function(){ ui.modal="kelola"; render(); };
     $("btnLogout").onclick = function(){
-      if(!confirm("Keluar dari SIMORIS? Anda perlu memasukkan kata sandi lagi untuk membuka kembali.")) return;
-      setAuthed(false);
-      renderLogin();
+      showConfirm("Keluar dari SIMORIS? Anda perlu memasukkan kata sandi lagi untuk membuka kembali.", function(){
+        setAuthed(false);
+        renderLogin();
+      });
     };
     $("btnCsv").onclick = exportCsv;
     $("btnExcel").onclick = exportExcel;
@@ -648,10 +762,11 @@
       btn.onclick = function(){
         var id = Number(btn.getAttribute("data-del"));
         var s = S.surats.filter(function(x){return x.id===id;})[0];
-        if(!confirm('Hapus surat "'+(s?nomorSurat(s.urut,s.kodeId):"")+'"? Tindakan ini tidak dapat dibatalkan.')) return;
-        S.surats = S.surats.filter(function(x){ return x.id!==id; });
-        save(S);
-        showToast("Surat dihapus.");
+        showConfirm('Hapus surat "'+(s?displayNomor(s):"")+'"? Tindakan ini tidak dapat dibatalkan.', function(){
+          S.surats = S.surats.filter(function(x){ return x.id!==id; });
+          save(S);
+          showToast("Surat dihapus.");
+        });
       };
     });
     document.querySelectorAll("[data-row-detail]").forEach(function(el){
@@ -688,14 +803,32 @@
           showToast("Perubahan tersimpan.");
         } else {
           S.counter += 1;
-          S.surats.unshift({ id:uid(), urut:S.counter, kodeId:kodeId, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:dibuatOleh });
+          var newSurat = { id:uid(), urut:S.counter, kodeId:kodeId, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:dibuatOleh, sumber:"manual", nomorOverride:null };
+          S.surats.unshift(newSurat);
           save(S);
           var nomor = nomorSurat(S.counter, kodeId);
           ui.modal=null;
           ui.page=1;
           showToast("Nomor "+nomor+" berhasil diterbitkan.");
+          pushSuratToSheet(newSurat);
         }
       };
+    }
+
+    if(ui.modal === "confirm"){
+      var onYes = ui.confirmOnYes;
+      $("confirmNoBtn").onclick = function(){ ui.modal=null; ui.confirmOnYes=null; render(); };
+      $("confirmOverlay").onclick = function(e){ if(e.target.id==="confirmOverlay"){ ui.modal=null; ui.confirmOnYes=null; render(); } };
+      $("confirmYesBtn").onclick = function(){
+        ui.modal=null; ui.confirmOnYes=null;
+        if(onYes) onYes();
+      };
+    }
+
+    if(ui.modal === "notice"){
+      $("noticeCloseBtn").onclick = function(){ ui.modal=null; render(); };
+      $("noticeCloseBtn2").onclick = function(){ ui.modal=null; render(); };
+      $("noticeOverlay").onclick = function(e){ if(e.target.id==="noticeOverlay"){ ui.modal=null; render(); } };
     }
 
     if(ui.modal === "detail"){
@@ -799,12 +932,56 @@
         $("pwOld").value = ""; $("pwNew").value = ""; $("pwNewConfirm").value = "";
         showToast("Kata sandi berhasil diubah.");
       };
+
+      $("saveAppsScriptBtn").onclick = function(){
+        var url = $("setAppsScriptUrl").value.trim();
+        var err = $("appsScriptError");
+        err.style.display = "none";
+        if(url && !/^https:\/\/script\.google\.com\/macros\//.test(url)){
+          err.textContent = "URL sepertinya bukan URL Web App Apps Script. Harus diawali https://script.google.com/macros/...";
+          err.style.display = "block";
+          return;
+        }
+        S.settings.appsScriptUrl = url;
+        save(S);
+        showToast(url ? "URL tulis-balik disimpan." : "URL tulis-balik dikosongkan.");
+      };
+
+      $("btnHapusSemua").onclick = function(){ ui.modal = "hapusSemua"; render(); };
+    }
+
+    if(ui.modal === "hapusSemua"){
+      $("closeHapusSemuaModal").onclick = closeHapusSemuaModal;
+      $("cancelHapusSemuaBtn").onclick = closeHapusSemuaModal;
+      $("hapusSemuaOverlay").onclick = function(e){ if(e.target.id==="hapusSemuaOverlay") closeHapusSemuaModal(); };
+
+      var hapusInput = $("hapusSemuaConfirmText");
+      var hapusBtn = $("confirmHapusSemuaBtn");
+      hapusInput.focus();
+      hapusInput.oninput = function(){
+        var match = hapusInput.value.trim().toUpperCase() === "HAPUS SEMUA";
+        hapusBtn.disabled = !match;
+        hapusBtn.style.background = match ? "var(--red)" : "var(--ink-100)";
+        hapusBtn.style.color = match ? "#fff" : "var(--ink-400)";
+        hapusBtn.style.cursor = match ? "pointer" : "not-allowed";
+      };
+      hapusBtn.onclick = function(){
+        if(hapusInput.value.trim().toUpperCase() !== "HAPUS SEMUA") return;
+        S.surats = [];
+        S.counter = 0;
+        resortSurats();
+        ui.page = 1;
+        ui.modal = null;
+        save(S);
+        showToast("Semua data surat telah dihapus.");
+      };
     }
   }
 
   function closeSuratModal(){ ui.modal=null; ui.editingId=null; ui.formKodeId=null; render(); }
   function closeKelolaModal(){ ui.modal=null; render(); }
   function closeDetailModal(){ ui.modal=null; ui.detailId=null; render(); }
+  function closeHapusSemuaModal(){ ui.modal=null; render(); }
 
   function exportCsv(){
     var rows = filteredSurats();
@@ -814,7 +991,7 @@
       var k = kodeOf(s.kodeId);
       var cells = [
         s.urut,
-        nomorSurat(s.urut,s.kodeId),
+        displayNomor(s),
         fmtTanggal(s.tanggal),
         s.tujuan||"",
         s.perihal,
@@ -835,13 +1012,13 @@
 
   function exportExcel(){
     if(typeof XLSX === "undefined"){
-      alert("Pustaka Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
+      showNotice("Pustaka Belum Siap", "Pustaka Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
       return;
     }
     var rows = filteredSurats().slice().sort(function(a,b){ return a.urut - b.urut; });
     var data = [["NO","TUJUAN SURAT","TANGGAL SURAT","PERIHAL","NOMOR SURAT KELUAR / SURAT PERINTAH"]];
     rows.forEach(function(s, idx){
-      data.push([ idx+1, s.tujuan||"", fmtTanggal(s.tanggal), s.perihal, nomorSurat(s.urut,s.kodeId) ]);
+      data.push([ idx+1, s.tujuan||"", fmtTanggal(s.tanggal), s.perihal, displayNomor(s) ]);
     });
     var ws = XLSX.utils.aoa_to_sheet(data);
     ws['!cols'] = [{wch:5},{wch:22},{wch:18},{wch:42},{wch:30}];
@@ -930,6 +1107,60 @@
     return k;
   }
 
+  /**
+   * Mendeteksi baris header (mencari kolom "Perihal" di 10 baris pertama,
+   * supaya baris judul tambahan di atas tabel tidak mengganggu) dan indeks
+   * tiap kolom yang relevan. Dipakai bersama oleh impor file DAN sinkron
+   * Google Sheet supaya keduanya konsisten.
+   */
+  function detectColumns(rows){
+    var headerIdx = 0;
+    for(var hi=0; hi<Math.min(rows.length,10); hi++){
+      if(colIndex(rows[hi], ["perihal"]) > -1){ headerIdx = hi; break; }
+    }
+    var header = rows[headerIdx];
+    return {
+      headerIdx: headerIdx,
+      idxTujuan: colIndex(header, ["tujuan"]),
+      idxTanggal: colIndex(header, ["tanggal"]),
+      idxPerihal: colIndex(header, ["perihal"]),
+      idxNomor: colIndex(header, ["nomor surat","nomor","no surat","no."]),
+      idxKode: colIndex(header, ["kode klasifikasi","klasifikasi","kode"])
+    };
+  }
+
+  function parseRowsToSurats(rows, cols){
+    var out = [];
+    for(var r=cols.headerIdx+1; r<rows.length; r++){
+      var c = rows[r];
+      var perihal = cols.idxPerihal>-1 ? String(c[cols.idxPerihal]||"").trim() : "";
+      if(!perihal) continue;
+      out.push({
+        tujuan: cols.idxTujuan>-1 ? String(c[cols.idxTujuan]||"").trim() : "",
+        tanggalRaw: cols.idxTanggal>-1 ? String(c[cols.idxTanggal]||"").trim() : "",
+        perihal: perihal,
+        nomorRaw: cols.idxNomor>-1 ? String(c[cols.idxNomor]||"").trim() : "",
+        kodeExplicit: cols.idxKode>-1 ? String(c[cols.idxKode]||"").trim() : ""
+      });
+    }
+    return out;
+  }
+
+  // Mengurai teks nomor surat pola "INSTANSI-KODE-URUT" (mis. W.9-KP.10.02-001)
+  // menjadi { urut, kodeStr }. Mengembalikan null kalau tidak sesuai pola.
+  function parseNomorRaw(nomorRaw){
+    if(!nomorRaw) return null;
+    var parts = nomorRaw.split("-");
+    if(parts.length >= 3){
+      var urutStr = parts[parts.length-1];
+      var kodeStr = parts.slice(1, parts.length-1).join("-");
+      if(/^\d+$/.test(urutStr) && kodeStr){
+        return { urut: parseInt(urutStr,10), kodeStr: kodeStr };
+      }
+    }
+    return null;
+  }
+
   function extractSheetId(url){
     var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
     return m ? m[1] : null;
@@ -989,10 +1220,31 @@
       });
   }
 
+  /**
+   * Kirim satu surat baru ke Google Sheet lewat Web App Apps Script
+   * (fitur tulis-balik, opsional). Best-effort dan tidak pernah memblokir:
+   * penyimpanan lokal SIMORIS selalu jadi sumber kebenaran utama — kalau
+   * pengiriman ini gagal (offline, URL belum diatur, dsb), surat tetap
+   * aman tersimpan secara lokal seperti biasa.
+   */
+  function pushSuratToSheet(surat){
+    var url = (S.settings.appsScriptUrl||"").trim();
+    if(!url) return;
+    var qs = "tujuan="+encodeURIComponent(surat.tujuan||"")+
+      "&tanggal="+encodeURIComponent(fmtTanggal(surat.tanggal))+
+      "&perihal="+encodeURIComponent(surat.perihal||"")+
+      "&nomor="+encodeURIComponent(displayNomor(surat));
+    // mode "no-cors": kita tidak bisa membaca hasilnya, tapi permintaan
+    // tetap terkirim & diproses di sisi Apps Script — cukup untuk aksi
+    // "tulis" satu arah seperti ini.
+    fetch(url + (url.indexOf("?")>-1 ? "&" : "?") + qs, { method:"GET", mode:"no-cors" })
+      .catch(function(){ /* gagal diam-diam, data lokal tetap aman */ });
+  }
+
   function refreshFromGoogleSheet(btn){
     var raw = (S.settings.googleSheetUrl||"").trim();
     if(!raw){
-      alert('Tautan Google Sheet belum diatur.\n\nBuka "Kelola Kode" → bagian "Sumber data Google Sheet" untuk mengaturnya terlebih dahulu.');
+      showNotice("Tautan Belum Diatur", 'Tautan Google Sheet belum diatur.\n\nBuka "Kelola Kode" → bagian "Sumber data Google Sheet" untuk mengaturnya terlebih dahulu.');
       ui.modal = "kelola";
       render();
       return;
@@ -1000,7 +1252,7 @@
 
     var candidates = buildCandidateCsvUrls(raw);
     if(!candidates.length){
-      alert('Tautan Google Sheet tidak dikenali.\n\nTempel tautan "Bagikan" biasa dari Google Sheets, contoh:\nhttps://docs.google.com/spreadsheets/d/XXXXXXXX/edit');
+      showNotice("Tautan Tidak Dikenali", 'Tautan Google Sheet tidak dikenali.\n\nTempel tautan "Bagikan" biasa dari Google Sheets, contoh:\nhttps://docs.google.com/spreadsheets/d/XXXXXXXX/edit');
       return;
     }
 
@@ -1009,11 +1261,11 @@
 
     tryFetchCsv(candidates, 0, 15000, null)
       .then(function(text){
-        importRowsLegacy(parseCsv(text));
+        syncFromGoogleSheetRows(parseCsv(text));
       })
       .catch(function(err){
         var isTimeout = err && err.name === "AbortError";
-        alert('Gagal mengambil data dari Google Sheet'+(isTimeout ? ' (waktu tunggu habis, koneksi terlalu lambat)' : '')+'.\n\n'+
+        showNotice("Gagal Refresh", 'Gagal mengambil data dari Google Sheet'+(isTimeout ? ' (waktu tunggu habis, koneksi terlalu lambat)' : '')+'.\n\n'+
           'Kemungkinan penyebab:\n'+
           '1. Sheet belum dibagikan sebagai "Siapa saja yang memiliki tautan → Dapat melihat" (klik Bagikan di Google Sheets, lalu ubah akses umum).\n'+
           '2. Tautan yang ditempel salah, sudah tidak berlaku, atau bukan tautan Google Sheets.\n'+
@@ -1033,12 +1285,12 @@
 
   function handleImportedExcel(arrayBuffer){
     if(typeof XLSX === "undefined"){
-      alert("Pustaka pembaca Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
+      showNotice("Pustaka Belum Siap", "Pustaka pembaca Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
       return;
     }
     var wb;
     try{ wb = XLSX.read(arrayBuffer, { type:"array", cellDates:true }); }
-    catch(e){ alert("File Excel tidak dapat dibaca. Pastikan file berformat .xlsx atau .xls yang valid."); return; }
+    catch(e){ showNotice("File Tidak Terbaca", "File Excel tidak dapat dibaca. Pastikan file berformat .xlsx atau .xls yang valid."); return; }
 
     var ws = wb.Sheets[wb.SheetNames[0]];
     var raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
@@ -1058,16 +1310,17 @@
   function importJsonBackup(text){
     var data;
     try{ data = JSON.parse(text); }
-    catch(e){ alert("File JSON tidak valid."); return; }
+    catch(e){ showNotice("File Tidak Valid", "File JSON tidak valid."); return; }
     if(!data || !Array.isArray(data.surats) || !Array.isArray(data.kodeList)){
-      alert("Struktur file JSON tidak dikenali. Gunakan file hasil tombol \"Cadangkan\"."); return;
+      showNotice("Format Tidak Dikenali", 'Struktur file JSON tidak dikenali. Gunakan file hasil tombol "Cadangkan".'); return;
     }
-    if(!confirm("Menimpa seluruh data saat ini ("+S.surats.length+" surat) dengan isi file cadangan ("+data.surats.length+" surat)?")) return;
-    S = data;
-    resortSurats();
-    ui.page = 1;
-    save(S);
-    showToast("Data berhasil dipulihkan dari cadangan.");
+    showConfirm("Menimpa seluruh data saat ini ("+S.surats.length+" surat) dengan isi file cadangan ("+data.surats.length+" surat)?", function(){
+      S = data;
+      resortSurats();
+      ui.page = 1;
+      save(S);
+      showToast("Data berhasil dipulihkan dari cadangan.");
+    });
   }
 
   /**
@@ -1079,84 +1332,54 @@
    * baris judul tambahan di atas tabel tidak mengganggu.
    */
   function importRowsLegacy(rows){
-    if(rows.length < 2){ alert("File kosong atau tidak terbaca."); return; }
+    if(rows.length < 2){ showNotice("File Kosong", "File kosong atau tidak terbaca."); return; }
 
-    var headerIdx = 0;
-    for(var hi=0; hi<Math.min(rows.length,10); hi++){
-      if(colIndex(rows[hi], ["perihal"]) > -1){ headerIdx = hi; break; }
+    var cols = detectColumns(rows);
+    if(cols.idxPerihal === -1){
+      showNotice("Format Tidak Dikenali", 'Kolom "Perihal" tidak ditemukan. Pastikan file memiliki kolom Perihal seperti pada format spreadsheet sebelumnya.');
+      return;
     }
-    var header = rows[headerIdx];
-    var idxTujuan = colIndex(header, ["tujuan"]);
-    var idxTanggal = colIndex(header, ["tanggal"]);
-    var idxPerihal = colIndex(header, ["perihal"]);
-    var idxNomor = colIndex(header, ["nomor surat","nomor","no surat","no."]);
-    var idxKode = colIndex(header, ["kode klasifikasi","klasifikasi","kode"]);
-
-    if(idxPerihal === -1){
-      alert("Kolom \"Perihal\" tidak ditemukan. Pastikan file memiliki kolom Perihal seperti pada format spreadsheet sebelumnya."); return;
-    }
+    var parsedRows = parseRowsToSurats(rows, cols);
 
     var existingNomor = {};
-    S.surats.forEach(function(s){ existingNomor[nomorSurat(s.urut,s.kodeId)] = true; });
+    S.surats.forEach(function(s){ existingNomor[displayNomor(s)] = true; });
 
     // Pra-pindai seluruh baris untuk mencari nomor urut eksplisit tertinggi
     // di file ini, supaya baris tanpa nomor (diberi nomor otomatis) TIDAK
     // pernah bentrok dengan nomor eksplisit yang justru muncul belakangan
     // di file yang sama.
-    for(var pr=headerIdx+1; pr<rows.length; pr++){
-      var nomorRawPra = idxNomor>-1 ? String(rows[pr][idxNomor]||"").trim() : "";
-      if(!nomorRawPra) continue;
-      var partsPra = nomorRawPra.split("-");
-      if(partsPra.length >= 3){
-        var urutStrPra = partsPra[partsPra.length-1];
-        if(/^\d+$/.test(urutStrPra)){
-          var urutPra = parseInt(urutStrPra, 10);
-          if(urutPra > S.counter) S.counter = urutPra;
-        }
-      }
-    }
+    parsedRows.forEach(function(pr){
+      var parsed = parseNomorRaw(pr.nomorRaw);
+      if(parsed && parsed.urut > S.counter) S.counter = parsed.urut;
+    });
 
     var kodeUmum = null;
     var ditambahkan = 0, dilewati = 0, maxUrutImpor = 0;
 
-    for(var r=headerIdx+1; r<rows.length; r++){
-      var cols = rows[r];
-      var perihal = idxPerihal>-1 ? String(cols[idxPerihal]||"").trim() : "";
-      if(!perihal) continue;
-      var tujuan = idxTujuan>-1 ? String(cols[idxTujuan]||"").trim() : "";
-      var tanggalRaw = idxTanggal>-1 ? String(cols[idxTanggal]||"").trim() : "";
-      var tanggal = parseTanggalIndo(tanggalRaw) || isoToday(0);
-      var nomorRaw = idxNomor>-1 ? String(cols[idxNomor]||"").trim() : "";
-      var kodeExplicit = idxKode>-1 ? String(cols[idxKode]||"").trim() : "";
-
+    parsedRows.forEach(function(pr){
+      var tanggal = parseTanggalIndo(pr.tanggalRaw) || isoToday(0);
       var kodeObj = null, urut = null;
 
-      if(nomorRaw){
-        var parts = nomorRaw.split("-");
-        if(parts.length >= 3){
-          var urutStr = parts[parts.length-1];
-          var kodeStr = parts.slice(1, parts.length-1).join("-");
-          if(/^\d+$/.test(urutStr) && kodeStr){
-            urut = parseInt(urutStr, 10);
-            kodeObj = ensureKode(kodeStr);
-          }
-        }
-      }
-      if(!kodeObj && kodeExplicit){ kodeObj = ensureKode(kodeExplicit); }
+      var parsed = parseNomorRaw(pr.nomorRaw);
+      if(parsed){ urut = parsed.urut; kodeObj = ensureKode(parsed.kodeStr); }
+      if(!kodeObj && pr.kodeExplicit){ kodeObj = ensureKode(pr.kodeExplicit); }
       if(!kodeObj){
         if(!kodeUmum) kodeUmum = ensureKode("IMPOR");
         kodeObj = kodeUmum;
       }
       if(urut === null){ S.counter += 1; urut = S.counter; }
 
-      var nomorFinal = nomorSurat(urut, kodeObj.id);
-      if(existingNomor[nomorFinal]){ dilewati++; continue; }
+      var nomorFinal = pr.nomorRaw || nomorSurat(urut, kodeObj.id);
+      if(existingNomor[nomorFinal]){ dilewati++; return; }
       existingNomor[nomorFinal] = true;
 
-      S.surats.push({ id:uid(), urut:urut, kodeId:kodeObj.id, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:"" });
+      S.surats.push({
+        id:uid(), urut:urut, kodeId:kodeObj.id, tujuan:pr.tujuan, perihal:pr.perihal,
+        tanggal:tanggal, dibuatOleh:"", sumber:"manual", nomorOverride: pr.nomorRaw || null
+      });
       ditambahkan++;
       if(urut > maxUrutImpor) maxUrutImpor = urut;
-    }
+    });
 
     if(maxUrutImpor > S.counter) S.counter = maxUrutImpor;
     resortSurats();
@@ -1164,6 +1387,71 @@
     save(S);
     render();
     showToast(ditambahkan+" surat diimpor"+(dilewati?", "+dilewati+" dilewati (sudah ada)":"")+".");
+  }
+
+  /**
+   * Sinkron dari Google Sheet — BERBEDA dari impor file biasa: ini
+   * MENGGANTI TOTAL seluruh data yang berasal dari sheet (bukan menambah),
+   * supaya jumlah data di SIMORIS selalu sama persis dengan jumlah baris
+   * valid di sheet saat itu — tidak pernah menumpuk atau dobel walau
+   * di-refresh berkali-kali. Data yang diterbitkan langsung dari SIMORIS
+   * (sumber:"manual") maupun hasil impor file (sumber:"manual") TIDAK
+   * disentuh oleh proses ini.
+   */
+  function syncFromGoogleSheetRows(rows){
+    if(rows.length < 2){
+      showNotice("Sheet Kosong", "Sheet tidak berisi data yang bisa disinkronkan.");
+      return;
+    }
+    var cols = detectColumns(rows);
+    if(cols.idxPerihal === -1){
+      showNotice("Format Tidak Dikenali", 'Kolom "Perihal" tidak ditemukan di sheet ini. Pastikan sheet memiliki kolom Perihal seperti pada format spreadsheet sebelumnya.');
+      return;
+    }
+    var parsedRows = parseRowsToSurats(rows, cols);
+
+    if(!parsedRows.length){
+      var hadSheetDataBefore = S.surats.some(function(s){ return s.sumber === "sheet"; });
+      if(hadSheetDataBefore){
+        showNotice("Refresh Dibatalkan",
+          'Sheet tampak kosong (tidak ada baris data yang valid). Untuk mencegah kehilangan data, refresh dibatalkan dan data sebelumnya TIDAK diubah.\n\nJika sheet memang sengaja dikosongkan, hapus manual lewat "Hapus Semua Data" di Kelola Kode.');
+        return;
+      }
+    }
+
+    var posCounter = 0;
+    var freshSheetSurats = parsedRows.map(function(pr){
+      posCounter++;
+      var tanggal = parseTanggalIndo(pr.tanggalRaw) || isoToday(0);
+      var kodeObj = null, urut = null;
+
+      var parsed = parseNomorRaw(pr.nomorRaw);
+      if(parsed){ urut = parsed.urut; kodeObj = ensureKode(parsed.kodeStr); }
+      if(!kodeObj && pr.kodeExplicit){ kodeObj = ensureKode(pr.kodeExplicit); }
+      if(!kodeObj){ kodeObj = ensureKode("SHEET"); }
+      if(urut === null){ urut = posCounter; }
+
+      return {
+        id: uid()+posCounter,
+        urut: urut,
+        kodeId: kodeObj.id,
+        tujuan: pr.tujuan,
+        perihal: pr.perihal,
+        tanggal: tanggal,
+        dibuatOleh: "",
+        sumber: "sheet",
+        nomorOverride: pr.nomorRaw || null
+      };
+    });
+
+    // GANTI TOTAL: buang seluruh data lama bersumber sheet, pasang hasil
+    // sinkron terbaru — bukan ditambahkan.
+    S.surats = S.surats.filter(function(s){ return s.sumber !== "sheet"; }).concat(freshSheetSurats);
+    resortSurats();
+    ui.page = 1;
+    save(S);
+    render();
+    showToast("Sinkron selesai — "+freshSheetSurats.length+" surat dari Google Sheet.");
   }
 
   // ---------------- layar login ----------------
