@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SIMORIS — Sistem Penomoran Surat Otomatis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink-900:#14264a; --ink-800:#1a3157; --ink-600:#2c4c7c; --ink-400:#5b729c;
+    --ink-100:#e3e9f2; --ink-50:#f3f6fa; --segel:#c98a2e; --paper:#f8f6f1;
+    --red:#b3413a; --red-bg:#fbe9e7; --green:#2f7d5c; --green-bg:#e3f3ea;
+    --amber-bg:#fbeed4; --violet:#6a4c93; --violet-bg:#ece5f5; --blue-bg:#e3e9f2;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink-900);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px;
+  }
+  .mono{ font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; }
+  header.app-header{ background:var(--ink-900); color:#fff; }
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 24px; }
+  .header-inner{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 0; flex-wrap:wrap; }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .brand-mark{ width:42px; height:42px; border-radius:10px; background:rgba(201,138,46,.92);
+    border:1.5px dashed rgba(255,255,255,.45); display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:15px; color:var(--ink-900); }
+  .brand h1{ font-size:17px; margin:0; font-weight:800; letter-spacing:.2px; }
+  .brand p{ margin:2px 0 0; font-size:12px; color:rgba(255,255,255,.7); }
+  .header-actions{ display:flex; align-items:center; gap:18px; }
+  .count-box{ text-align:right; }
+  .count-box p{ margin:0; font-size:11px; color:rgba(255,255,255,.65); }
+  .count-box strong{ font-size:20px; font-weight:700; }
+  .btn{ border:none; cursor:pointer; font-weight:600; font-size:13px; border-radius:8px; padding:10px 16px;
+    display:inline-flex; align-items:center; gap:6px; }
+  .btn-segel{ background:var(--segel); color:var(--ink-900); }
+  .btn-segel:hover{ background:#b87c26; }
+  .btn-ghost{ background:#fff; color:var(--ink-800); border:1px solid var(--ink-100); }
+  .btn-ghost:hover{ background:var(--ink-50); }
+  .btn-dark{ background:var(--ink-900); color:#fff; }
+  .btn-dark:hover{ background:var(--ink-800); }
+  .btn-danger-text{ background:none; color:var(--red); font-weight:600; font-size:12px; padding:4px 6px; }
+  main{ padding:28px 0 60px; }
+  .toolbar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .toolbar input[type=text], .toolbar select{
+    padding:10px 12px; border-radius:8px; border:1px solid var(--ink-100); font-size:13px; background:#fff;
+    font-family:inherit;
+  }
+  .toolbar .search{ flex:1; min-width:220px; position:relative; }
+  .toolbar .search input{ width:100%; padding-left:34px; }
+  .toolbar .search svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--ink-400); }
+  .toolbar select{ min-width:220px; }
+  .toolbar-right{ display:flex; gap:8px; margin-left:auto; }
+  .card{ background:#fff; border:1px solid var(--ink-100); border-radius:12px; box-shadow:0 1px 2px rgba(20,38,74,.06),0 8px 24px -12px rgba(20,38,74,.18); overflow:hidden; }
+  table{ width:100%; border-collapse:collapse; }
+  thead tr{ background:var(--ink-50); }
+  th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-600); font-weight:700; padding:11px 14px; }
+  td{ padding:11px 14px; font-size:13px; border-top:1px solid var(--ink-100); vertical-align:middle; }
+  tbody tr:hover{ background:#faf9f6; }
+  .nomor-badge{ font-weight:700; background:var(--paper); border:1.5px dashed rgba(201,138,46,.55); border-radius:6px; padding:4px 9px; display:inline-block; }
+  .badge{ display:inline-flex; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .truncate{ max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .empty{ padding:48px 20px; text-align:center; }
+  .empty p:first-child{ font-weight:700; margin:0 0 4px; }
+  .empty p:last-child{ color:var(--ink-400); font-size:13px; margin:0; }
+  .overlay{ position:fixed; inset:0; background:rgba(20,38,74,.5); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .modal{ background:#fff; border-radius:16px; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(20,38,74,.35); }
+  .modal-head{ padding:18px 22px; border-bottom:1px solid var(--ink-100); display:flex; justify-content:space-between; align-items:center; }
+  .modal-head h2{ margin:0; font-size:15px; font-weight:800; }
+  .modal-close{ border:none; background:none; font-size:22px; line-height:1; color:var(--ink-400); cursor:pointer; }
+  .modal-body{ padding:22px; display:flex; flex-direction:column; gap:14px; }
+  .field label{ display:block; font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:5px; text-transform:uppercase; letter-spacing:.02em; }
+  .field input, .field select{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--ink-100); font-size:13px; font-family:inherit; }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--ink-600); box-shadow:0 0 0 3px rgba(44,76,124,.12); }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .preview-box{ background:var(--paper); border:1.5px dashed rgba(201,138,46,.55); border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; }
+  .preview-box span:first-child{ font-size:11px; color:var(--ink-600); font-weight:600; }
+  .preview-box span:last-child{ font-weight:700; }
+  .form-actions{ display:flex; gap:10px; margin-top:4px; }
+  .form-actions button{ flex:1; padding:11px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; }
+  .error-text{ color:var(--red); font-size:12px; font-weight:600; margin:0; }
+  .kode-row{ display:flex; justify-content:space-between; align-items:center; background:var(--paper); border-radius:8px; padding:8px 12px; font-size:13px; }
+  .kode-row + .kode-row{ margin-top:6px; }
+  .kode-row b{ font-family:inherit; }
+  .hint{ color:var(--ink-400); font-size:11px; margin:0; }
+  .toast{ position:fixed; bottom:22px; right:22px; background:var(--ink-900); color:#fff; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600; box-shadow:0 10px 30px rgba(20,38,74,.35); z-index:60; }
+  .settings-row{ display:flex; gap:10px; }
+  .badge-blue{ background:var(--blue-bg); color:var(--ink-800); }
+  .badge-green{ background:var(--green-bg); color:var(--green); }
+  .badge-emerald{ background:#e3f3ea; color:#1f6b46; }
+  .badge-amber{ background:var(--amber-bg); color:#9a6316; }
+  .badge-violet{ background:var(--violet-bg); color:var(--violet); }
+  .badge-red{ background:var(--red-bg); color:var(--red); }
+  .badge-slate{ background:#eef1f5; color:#475569; }
+  footer.app-footer{ text-align:center; padding:24px; color:var(--ink-400); font-size:12px; }
+  .banner{ background:#fff8ec; border:1px solid #f0dbb0; color:#8a5a12; font-size:12px; padding:10px 14px; border-radius:10px; margin-bottom:16px; line-height:1.5; }
+  .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+
+  /* ---- kartu untuk tampilan ponsel (pengganti tabel) ---- */
+  .table-mobile{ display:none; }
+  .surat-card{ background:#fff; border:1px solid var(--ink-100); border-radius:12px; padding:14px; margin-bottom:10px; }
+  .surat-card-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
+  .surat-card .nomor-badge{ font-size:12.5px; }
+  .surat-card-perihal{ font-weight:700; font-size:13.5px; margin:0 0 4px; line-height:1.35; }
+  .surat-card-meta{ color:var(--ink-600); font-size:12.5px; margin:0 0 2px; }
+  .surat-card-actions{ display:flex; gap:14px; margin-top:10px; padding-top:10px; border-top:1px solid var(--ink-100); }
+  .surat-card-actions button{ font-size:12.5px; font-weight:700; }
+
+  .row-clickable{ cursor:pointer; }
+  .surat-card.row-clickable:active{ background:var(--paper); }
+  tbody tr.row-clickable:hover .nomor-badge{ border-color:var(--segel); }
+
+  .detail-hero{ text-align:center; padding:2px 0 6px; }
+  .detail-hero .nomor-badge{ font-size:16px; padding:7px 14px; }
+  .detail-grid{ display:flex; flex-direction:column; gap:10px; }
+  .detail-row{ display:flex; flex-direction:column; gap:3px; padding:10px 12px; background:var(--paper); border-radius:8px; }
+  .detail-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-600); }
+  .detail-value{ font-size:14px; color:var(--ink-900); word-break:break-word; line-height:1.4; }
+
+  .pagination{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; flex-wrap:wrap; }
+  .pagination-info{ color:var(--ink-600); font-size:12.5px; }
+  .pagination-controls{ display:flex; align-items:center; gap:6px; }
+  .page-btn{ border:1px solid var(--ink-100); background:#fff; color:var(--ink-800); font-weight:600; font-size:12.5px;
+    padding:7px 11px; border-radius:7px; cursor:pointer; min-width:34px; }
+  .page-btn:hover:not(:disabled){ background:var(--ink-50); }
+  .page-btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .page-btn.active{ background:var(--ink-900); color:#fff; border-color:var(--ink-900); }
+  .page-jump{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-600); }
+  .page-jump input{ width:52px; padding:6px 8px; border-radius:7px; border:1px solid var(--ink-100); font-size:12.5px; text-align:center; }
+  .page-size-select{ padding:7px 9px; border-radius:7px; border:1px solid var(--ink-100); font-size:12.5px; background:#fff; }
+
+  @media (max-width:760px){
+    .pagination{ flex-direction:column; align-items:stretch; text-align:center; }
+    .pagination-controls{ justify-content:center; flex-wrap:wrap; }
+  }
+
+  .login-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .login-card{ background:#fff; border-radius:16px; width:100%; max-width:380px; padding:32px 28px; box-shadow:0 20px 60px rgba(20,38,74,.18); border:1px solid var(--ink-100); }
+  .login-brand{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:24px; }
+  .login-brand .brand-mark{ background:rgba(201,138,46,.92); border:1.5px dashed rgba(201,138,46,.55); color:var(--ink-900); margin-bottom:12px; }
+  .login-brand h1{ font-size:18px; margin:0; font-weight:800; color:var(--ink-900); }
+  .login-brand p{ margin:4px 0 0; font-size:12.5px; color:var(--ink-400); }
+  .login-card .field{ margin-bottom:16px; }
+  .login-card button[type=submit]{ width:100%; padding:12px; border-radius:8px; font-weight:700; font-size:13.5px; cursor:pointer; }
+
+  @media (max-width:760px){
+    .wrap{ padding:0 16px; }
+    body{ font-size:13.5px; }
+    .header-inner{ padding:16px 0; gap:12px; }
+    .brand h1{ font-size:16px; }
+    .header-actions{ width:100%; justify-content:space-between; gap:10px; }
+    .count-box{ display:none; }
+    #btnKelola{ padding:9px 12px; font-size:12.5px; }
+    #btnTambah{ flex:1; justify-content:center; }
+    .toolbar{ gap:8px; }
+    .toolbar select{ min-width:0; width:100%; }
+    .toolbar-right{ margin-left:0; width:100%; gap:8px; flex-wrap:wrap; }
+    .toolbar-right .btn{ flex:1 1 calc(50% - 4px); justify-content:center; padding:9px 8px; font-size:12px; white-space:nowrap; }
+    .grid2{ grid-template-columns:1fr; }
+    .modal{ max-width:100%; border-radius:14px 14px 0 0; align-self:flex-end; }
+    .overlay{ align-items:flex-end; padding:0; }
+    .modal-body{ padding:18px; }
+    .table-desktop{ display:none; }
+    .table-mobile{ display:block; }
+  }
+  @media print{
+    header, .toolbar, .btn, .empty p:last-child{ display:none !important; }
+    body{ background:#fff; }
+    .card{ box-shadow:none; border:none; }
+    .table-mobile{ display:none !important; }
+    .table-desktop{ display:block !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORE_KEY = "simoris_data_v1";
+  var AUTH_KEY = "simoris_authed_v1";
+  var PW_HASH_KEY = "simoris_pw_hash_v1";
+  // Hash dari kata sandi bawaan "simoris2026" — GANTI setelah login pertama
+  // lewat "Kelola Kode" → "Ubah kata sandi akses".
+  var DEFAULT_PW_HASH = "ca861d55";
+
+  // Hash sederhana (djb2), BUKAN kriptografi kuat — ini hanya gerbang akses
+  // dasar agar orang tidak sembarangan membuka aplikasi, bukan proteksi
+  // untuk data sangat rahasia (aplikasi ini 100% berjalan di peramban,
+  // sehingga siapa pun yang punya akses fisik + alat developer browser
+  // pada akhirnya tetap bisa melihat data yang tersimpan).
+  function simpleHash(str){
+    var hash = 5381;
+    for(var i=0;i<str.length;i++){
+      hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+    }
+    return hash.toString(16);
+  }
+  function getStoredPwHash(){
+    try{ return localStorage.getItem(PW_HASH_KEY) || DEFAULT_PW_HASH; }catch(e){ return DEFAULT_PW_HASH; }
+  }
+  function setStoredPwHash(hash){
+    try{ localStorage.setItem(PW_HASH_KEY, hash); }catch(e){ /* storage unavailable */ }
+  }
+  function isAuthed(){
+    try{ return localStorage.getItem(AUTH_KEY) === "1"; }catch(e){ return false; }
+  }
+  function setAuthed(v){
+    try{ localStorage.setItem(AUTH_KEY, v ? "1" : "0"); }catch(e){ /* storage unavailable */ }
+  }
+
+  var WARNA_CLASS = {
+    blue:"badge-blue", green:"badge-green", emerald:"badge-emerald",
+    amber:"badge-amber", violet:"badge-violet", red:"badge-red", slate:"badge-slate"
+  };
+
+  // Klasifikasi sengaja dibuat MINIMAL secara bawaan — hanya 1 kode contoh.
+  // Kode klasifikasi ditambahkan secara manual lewat "Kelola Kode" sesuai
+  // kebutuhan kantor masing-masing. Yang otomatis hanyalah deret nomor
+  // urut di belakang (mis. ...-001, ...-002, dst).
+  var DEFAULT_KODE = [
+    { id:1, kode:"UM", nama:"Umum", warna:"emerald", aktif:true }
+  ];
+
+  function defaultState(){
+    return {
+      settings: { instansiKode:"W.9", digit:3, googleSheetUrl:"" },
+      counter: 2,
+      kodeList: DEFAULT_KODE,
+      surats: [
+        { id:1, urut:1, kodeId:1, tujuan:"Rizani", perihal:"Surat Undangan Rapat Koordinasi", tanggal:isoToday(-1), dibuatOleh:"" },
+        { id:2, urut:2, kodeId:1, tujuan:"", perihal:"Pengadaan ATK Triwulan I", tanggal:isoToday(0), dibuatOleh:"" }
+      ],
+      seeded:true
+    };
+  }
+
+  function isoToday(offsetDays){
+    var d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return d.toISOString().slice(0,10);
+  }
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(STORE_KEY);
+      if(!raw) { var s = defaultState(); save(s); return s; }
+      return JSON.parse(raw);
+    }catch(e){ return defaultState(); }
+  }
+  function save(s){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }catch(e){ /* storage unavailable */ }
+  }
+
+  var S = load();
+  if(!S.settings) S.settings = { instansiKode:"W.9", digit:3, googleSheetUrl:"" };
+  if(typeof S.settings.googleSheetUrl === "undefined") S.settings.googleSheetUrl = "";
+  resortSurats();
+  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null, page:1, pageSize:50 };
+
+  function kodeOf(id){
+    for(var i=0;i<S.kodeList.length;i++){ if(S.kodeList[i].id===id) return S.kodeList[i]; }
+    return null;
+  }
+  function aktifKode(){ return S.kodeList.filter(function(k){ return k.aktif; }); }
+  function nomorSurat(urut, kodeId){
+    var k = kodeOf(kodeId);
+    var kodeStr = k ? k.kode : "?";
+    var padded = String(urut).padStart(S.settings.digit, "0");
+    return S.settings.instansiKode + "-" + kodeStr + "-" + padded;
+  }
+  function fmtTanggal(iso){
+    if(!iso) return "—";
+    var d = new Date(iso+"T00:00:00");
+    var bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    return d.getDate()+" "+bulan[d.getMonth()]+" "+d.getFullYear();
+  }
+  function uid(){ return Date.now() + Math.floor(Math.random()*1000); }
+  function esc(str){
+    return String(str==null?"":str).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function resortSurats(){
+    S.surats.sort(function(a,b){ return b.urut - a.urut; });
+  }
+
+  function filteredSurats(){
+    // S.surats selalu dijaga terurut menurun (lihat resortSurats) sehingga
+    // pencarian/filter tidak perlu mengurutkan ulang setiap kali diketik —
+    // penting untuk performa saat data mencapai ribuan baris.
+    if(!ui.search && !ui.kodeFilter) return S.surats;
+    var searchLower = ui.search ? ui.search.toLowerCase() : "";
+    return S.surats.filter(function(s){
+      var matchSearch = true;
+      if(searchLower){
+        var hay = (s.perihal+" "+s.tujuan+" "+nomorSurat(s.urut,s.kodeId)).toLowerCase();
+        matchSearch = hay.indexOf(searchLower) > -1;
+      }
+      var matchKode = !ui.kodeFilter || String(s.kodeId) === ui.kodeFilter;
+      return matchSearch && matchKode;
+    });
+  }
+
+  function currentPage(){
+    var all = filteredSurats();
+    var totalPages = Math.max(1, Math.ceil(all.length / ui.pageSize));
+    if(ui.page > totalPages) ui.page = totalPages;
+    if(ui.page < 1) ui.page = 1;
+    var start = (ui.page-1) * ui.pageSize;
+    return {
+      rows: all.slice(start, start + ui.pageSize),
+      total: all.length,
+      totalPages: totalPages,
+      start: start
+    };
+  }
+
+  function showToast(msg){
+    ui.toast = msg;
+    render();
+    setTimeout(function(){ ui.toast=""; render(); }, 2600);
+  }
+
+  // ---------- render pieces ----------
+
+  function renderHeader(){
+    return ''+
+    '<header class="app-header"><div class="wrap header-inner">'+
+      '<div class="brand">'+
+        '<div class="brand-mark">№</div>'+
+        '<div><h1>SIMORIS</h1><p>Sistem Penomoran Surat Otomatis</p></div>'+
+      '</div>'+
+      '<div class="header-actions">'+
+        '<div class="count-box"><p>Surat tercatat</p><strong class="mono">'+String(S.surats.length).padStart(3,"0")+'</strong></div>'+
+        '<button class="btn btn-ghost" id="btnKelola" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.25)">Kelola Kode</button>'+
+        '<button class="btn btn-segel" id="btnTambah">+ Terbitkan Nomor</button>'+
+        '<button class="btn btn-ghost" id="btnLogout" style="background:transparent;color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.25);padding:10px 12px" title="Keluar">Keluar</button>'+
+      '</div>'+
+    '</div></header>';
+  }
+
+  function renderToolbar(){
+    var opts = aktifKode().map(function(k){
+      return '<option value="'+k.id+'"'+(ui.kodeFilter===String(k.id)?" selected":"")+'>'+esc(k.kode)+' — '+esc(k.nama)+'</option>';
+    }).join("");
+    return ''+
+    '<div class="toolbar">'+
+      '<div class="search">'+
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
+        '<input type="text" id="searchInput" placeholder="Cari perihal, tujuan, atau nomor surat..." value="'+esc(ui.search)+'" />'+
+      '</div>'+
+      '<select id="kodeFilterSelect"><option value="">Semua kode klasifikasi</option>'+opts+'</select>'+
+      '<div class="toolbar-right">'+
+        '<button class="btn btn-segel" id="btnRefreshSheet">Refresh Google Sheet</button>'+
+        '<button class="btn btn-ghost" id="btnImport">Impor Excel/CSV</button>'+
+        '<input type="file" id="importFileInput" accept=".json,.csv,.xlsx,.xls" class="visually-hidden" />'+
+        '<button class="btn btn-ghost" id="btnExcel">Unduh Excel</button>'+
+        '<button class="btn btn-ghost" id="btnCsv">Unduh CSV</button>'+
+        '<button class="btn btn-ghost" id="btnJson">Cadangkan</button>'+
+        '<button class="btn btn-ghost" id="btnPrint">Cetak</button>'+
+      '</div>'+
+    '</div>';
+  }
+
+  function renderTable(){
+    var page = currentPage();
+    var rows = page.rows;
+
+    if(!page.total){
+      return '<div class="card"><div class="empty">'+
+        '<p>Tidak ada surat yang cocok</p>'+
+        '<p>Coba ubah kata kunci pencarian atau filter kode klasifikasi.</p>'+
+      '</div></div>';
+    }
+
+    var trs = rows.map(function(s){
+      var k = kodeOf(s.kodeId);
+      var warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
+      return '<tr class="row-clickable" data-row-detail="'+s.id+'">'+
+        '<td class="mono" style="color:var(--ink-400)">'+s.urut+'</td>'+
+        '<td><span class="nomor-badge mono">'+esc(nomorSurat(s.urut,s.kodeId))+'</span></td>'+
+        '<td style="white-space:nowrap;color:var(--ink-600)">'+fmtTanggal(s.tanggal)+'</td>'+
+        '<td>'+esc(s.tujuan||"—")+'</td>'+
+        '<td class="truncate" title="'+esc(s.perihal)+'">'+esc(s.perihal)+'</td>'+
+        '<td>'+(k?'<span class="badge '+warnaCls+'">'+esc(k.kode)+'</span>':'—')+'</td>'+
+        '<td style="text-align:right">'+
+          '<button class="btn-danger-text" data-edit="'+s.id+'" style="color:var(--ink-600)">Ubah</button>'+
+          '<button class="btn-danger-text" data-del="'+s.id+'">Hapus</button>'+
+        '</td>'+
+      '</tr>';
+    }).join("");
+
+    var desktop = '<div class="card table-desktop"><table>'+
+      '<thead><tr><th style="width:40px">No</th><th>Nomor Surat</th><th>Tanggal</th><th>Tujuan</th><th>Perihal</th><th>Klasifikasi</th><th></th></tr></thead>'+
+      '<tbody>'+trs+'</tbody>'+
+    '</table>'+renderPagination(page)+'</div>';
+
+    var cards = rows.map(function(s){
+      var k = kodeOf(s.kodeId);
+      var warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
+      return '<div class="surat-card row-clickable" data-row-detail="'+s.id+'">'+
+        '<div class="surat-card-top">'+
+          '<span class="nomor-badge mono">'+esc(nomorSurat(s.urut,s.kodeId))+'</span>'+
+          (k?'<span class="badge '+warnaCls+'">'+esc(k.kode)+'</span>':'')+
+        '</div>'+
+        '<p class="surat-card-perihal">'+esc(s.perihal)+'</p>'+
+        '<p class="surat-card-meta">'+fmtTanggal(s.tanggal)+(s.tujuan?' &middot; Tujuan: '+esc(s.tujuan):'')+'</p>'+
+        '<div class="surat-card-actions">'+
+          '<button class="btn-danger-text" data-edit="'+s.id+'" style="color:var(--ink-600);padding:0">Ubah</button>'+
+          '<button class="btn-danger-text" data-del="'+s.id+'" style="padding:0">Hapus</button>'+
+        '</div>'+
+      '</div>';
+    }).join("");
+    var mobile = '<div class="table-mobile">'+cards+'<div class="card">'+renderPagination(page)+'</div></div>';
+
+    return desktop + mobile;
+  }
+
+  function renderPagination(page){
+    var from = page.total ? page.start+1 : 0;
+    var to = Math.min(page.start+ui.pageSize, page.total);
+    var pageBtns = "";
+    var p = ui.page, tp = page.totalPages;
+    // tampilkan maks 5 nomor halaman di sekitar halaman aktif, agar tetap
+    // ringkas walau jumlah halaman sangat banyak (ratusan halaman untuk
+    // data ribuan baris)
+    var lo = Math.max(1, p-2), hi = Math.min(tp, p+2);
+    if(p<=3) hi = Math.min(tp, 5);
+    if(p>=tp-2) lo = Math.max(1, tp-4);
+    if(lo>1) pageBtns += '<button class="page-btn" data-page="1">1</button>'+(lo>2?'<span style="padding:0 2px;color:var(--ink-400)">…</span>':'');
+    for(var i=lo;i<=hi;i++){
+      pageBtns += '<button class="page-btn'+(i===p?' active':'')+'" data-page="'+i+'">'+i+'</button>';
+    }
+    if(hi<tp) pageBtns += (hi<tp-1?'<span style="padding:0 2px;color:var(--ink-400)">…</span>':'')+'<button class="page-btn" data-page="'+tp+'">'+tp+'</button>';
+
+    return '<div class="pagination">'+
+      '<div class="pagination-info">Menampilkan <b>'+from+'–'+to+'</b> dari <b>'+page.total+'</b> surat</div>'+
+      '<div class="pagination-controls">'+
+        '<button class="page-btn js-prev-page"'+(p<=1?' disabled':'')+'>‹ Sebelumnya</button>'+
+        pageBtns+
+        '<button class="page-btn js-next-page"'+(p>=tp?' disabled':'')+'>Berikutnya ›</button>'+
+      '</div>'+
+      '<div class="pagination-controls">'+
+        '<label class="page-jump">Per halaman '+
+          '<select class="page-size-select js-page-size">'+
+            [25,50,100,200,500].map(function(n){ return '<option value="'+n+'"'+(ui.pageSize===n?' selected':'')+'>'+n+'</option>'; }).join("")+
+          '</select>'+
+        '</label>'+
+      '</div>'+
+    '</div>';
+  }
+
+  function renderSuratModal(){
+    if(ui.modal !== "surat") return "";
+    var editing = ui.editingId ? S.surats.filter(function(s){return s.id===ui.editingId;})[0] : null;
+    var kodeId = ui.formKodeId || (editing ? editing.kodeId : (aktifKode()[0] && aktifKode()[0].id));
+    var previewUrut = editing ? editing.urut : (S.counter + 1);
+    var preview = kodeId ? nomorSurat(previewUrut, kodeId) : "—";
+    var opsiKode = aktifKode();
+    if(editing){
+      var kodeEditing = kodeOf(editing.kodeId);
+      if(kodeEditing && !kodeEditing.aktif){ opsiKode = opsiKode.concat([kodeEditing]); }
+    }
+    var opts = opsiKode.map(function(k){
+      var label = esc(k.kode)+' — '+esc(k.nama)+(k.aktif?'':' (nonaktif)');
+      return '<option value="'+k.id+'"'+(String(kodeId)===String(k.id)?" selected":"")+'>'+label+'</option>';
+    }).join("");
+
+    return '<div class="overlay" id="suratOverlay"><div class="modal">'+
+      '<div class="modal-head"><h2>'+(editing?"Ubah Surat":"Terbitkan Nomor Baru")+'</h2>'+
+        '<button class="modal-close" id="closeSuratModal">&times;</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="preview-box"><span>'+(editing?"Nomor surat (tidak dapat diubah)":"Nomor surat akan menjadi")+'</span><span class="mono">'+esc(preview)+'</span></div>'+
+        (aktifKode().length ? '' : '<p class="error-text">Belum ada kode klasifikasi aktif. Tambahkan lewat "Kelola Kode" dulu.</p>')+
+        '<div class="field"><label>Kode Klasifikasi</label><select id="fKode">'+opts+'</select></div>'+
+        '<div class="grid2">'+
+          '<div class="field"><label>Tanggal Surat</label><input type="date" id="fTanggal" value="'+esc(editing?editing.tanggal:isoToday(0))+'" /></div>'+
+          '<div class="field"><label>Tujuan Surat</label><input type="text" id="fTujuan" placeholder="Nama/bagian tujuan" value="'+esc(editing?editing.tujuan:"")+'" /></div>'+
+        '</div>'+
+        '<div class="field"><label>Perihal</label><input type="text" id="fPerihal" placeholder="Contoh: PAK Cory / Surat Undangan Rapat" value="'+esc(editing?editing.perihal:"")+'" /></div>'+
+        '<div class="field"><label>Dibuat oleh (opsional)</label><input type="text" id="fDibuatOleh" placeholder="Nama petugas" value="'+esc(editing?editing.dibuatOleh:"")+'" /></div>'+
+        '<p class="error-text" id="formError" style="display:none"></p>'+
+        '<div class="form-actions">'+
+          '<button class="btn-ghost" id="cancelSuratModal">Batal</button>'+
+          '<button class="btn-dark" id="submitSuratModal"'+(aktifKode().length?'':' disabled')+'>'+(editing?"Simpan Perubahan":"Terbitkan")+'</button>'+
+        '</div>'+
+      '</div></div></div>';
+  }
+
+  function renderDetailModal(){
+    if(ui.modal !== "detail") return "";
+    var s = S.surats.filter(function(x){return x.id===ui.detailId;})[0];
+    if(!s) return "";
+    var k = kodeOf(s.kodeId);
+
+    function baris(label, value){
+      return '<div class="detail-row"><span class="detail-label">'+label+'</span><span class="detail-value">'+value+'</span></div>';
+    }
+
+    return '<div class="overlay" id="detailOverlay"><div class="modal">'+
+      '<div class="modal-head"><h2>Detail Surat</h2><button class="modal-close" id="closeDetailModal">&times;</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="detail-hero"><span class="nomor-badge mono">'+esc(nomorSurat(s.urut,s.kodeId))+'</span></div>'+
+        '<div class="detail-grid">'+
+          baris('Kode Klasifikasi', k ? (esc(k.kode)+' — '+esc(k.nama)) : '—')+
+          baris('Tanggal Surat', fmtTanggal(s.tanggal))+
+          baris('Tujuan Surat', esc(s.tujuan||'—'))+
+          baris('Perihal', esc(s.perihal))+
+          baris('Nomor Urut', String(s.urut))+
+          baris('Dibuat oleh', esc(s.dibuatOleh||'—'))+
+        '</div>'+
+        '<div class="form-actions">'+
+          '<button class="btn-ghost" id="closeDetailModal2">Tutup</button>'+
+          '<button class="btn-dark" id="detailEditBtn">Ubah Surat</button>'+
+        '</div>'+
+      '</div></div></div>';
+  }
+
+  function renderKelolaModal(){
+    if(ui.modal !== "kelola") return "";
+    var rows = S.kodeList.map(function(k){
+      return '<div class="kode-row"><div><b class="mono">'+esc(k.kode)+'</b> &nbsp;'+esc(k.nama)+
+        (k.aktif ? '' : ' <span style="color:var(--ink-400)">(nonaktif)</span>')+'</div>'+
+        (k.aktif ? '<button class="btn-danger-text" data-nonaktif="'+k.id+'">Nonaktifkan</button>' : '<button class="btn-danger-text" style="color:var(--green)" data-aktifkan="'+k.id+'">Aktifkan</button>')+
+      '</div>';
+    }).join("");
+
+    return '<div class="overlay" id="kelolaOverlay"><div class="modal">'+
+      '<div class="modal-head"><h2>Kelola Kode Klasifikasi</h2><button class="modal-close" id="closeKelolaModal">&times;</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="banner">Kode klasifikasi ditambahkan manual sesuai kebutuhan kantor Anda. Yang otomatis hanya deret nomor urut di belakang (mis. ...-001, ...-002, dst).</div>'+
+        '<div>'+rows+'</div>'+
+        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
+          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Tambah kode manual</p>'+
+          '<div class="grid2">'+
+            '<div class="field"><label>Kode</label><input type="text" id="newKodeKode" placeholder="mis. KP atau KP.10.02" /></div>'+
+            '<div class="field"><label>Nama</label><input type="text" id="newKodeNama" placeholder="mis. Kepegawaian" /></div>'+
+          '</div>'+
+          '<p class="error-text" id="kodeError" style="display:none;margin-top:8px"></p>'+
+          '<button class="btn-dark" id="addKodeBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">+ Tambah Kode</button>'+
+        '</div>'+
+        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
+          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Pengaturan penomoran</p>'+
+          '<div class="settings-row">'+
+            '<div class="field" style="flex:1"><label>Kode Instansi</label><input type="text" id="setInstansi" value="'+esc(S.settings.instansiKode)+'" /></div>'+
+            '<div class="field" style="width:110px"><label>Digit Nomor</label><input type="number" min="1" max="6" id="setDigit" value="'+S.settings.digit+'" /></div>'+
+          '</div>'+
+          '<button class="btn-ghost" id="saveSettingsBtn" style="width:100%;margin-top:8px;padding:10px;border-radius:8px">Simpan Pengaturan</button>'+
+        '</div>'+
+        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
+          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Sumber data Google Sheet (opsional)</p>'+
+          '<p class="hint" style="margin-bottom:10px;line-height:1.5">Supaya bisa "Refresh" mengikuti data terbaru tanpa impor manual: di Google Sheets, buka <b>File → Bagikan → Publikasikan ke web</b>, pilih sheet yang dipakai, format <b>CSV</b>, lalu tempel tautannya di sini.</p>'+
+          '<div class="field"><label>Tautan CSV Google Sheet</label><input type="text" id="setSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" value="'+esc(S.settings.googleSheetUrl||"")+'" /></div>'+
+          '<p class="error-text" id="sheetUrlError" style="display:none;margin-top:8px"></p>'+
+          '<div class="form-actions" style="margin-top:10px">'+
+            '<button class="btn-ghost" id="saveSheetUrlBtn">Simpan Tautan</button>'+
+            '<button class="btn-dark" id="testRefreshBtn">Simpan &amp; Refresh Sekarang</button>'+
+          '</div>'+
+        '</div>'+
+        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
+          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Ubah kata sandi akses</p>'+
+          '<div class="field"><label>Kata sandi saat ini</label><input type="password" id="pwOld" placeholder="Kata sandi saat ini" /></div>'+
+          '<div class="grid2" style="margin-top:10px">'+
+            '<div class="field"><label>Kata sandi baru</label><input type="password" id="pwNew" placeholder="Minimal 4 karakter" /></div>'+
+            '<div class="field"><label>Ulangi kata sandi baru</label><input type="password" id="pwNewConfirm" placeholder="Ulangi kata sandi baru" /></div>'+
+          '</div>'+
+          '<p class="error-text" id="pwError" style="display:none;margin-top:8px"></p>'+
+          '<button class="btn-dark" id="changePwBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">Ubah Kata Sandi</button>'+
+        '</div>'+
+      '</div></div></div>';
+  }
+
+  function renderStorageBanner(){
+    return '<div class="banner">Data tersimpan otomatis di peramban perangkat ini. Untuk memakai data yang sama di perangkat/komputer lain: unduh <b>Cadangkan (JSON)</b> di sini lalu <b>Impor Excel/CSV</b> file tersebut di perangkat lain. Anda juga bisa langsung mengimpor rekap lama dari file Excel (.xlsx) sesuai format spreadsheet sebelumnya (kolom Tujuan Surat, Tanggal Surat, Perihal, Nomor Surat).</div>';
+  }
+
+  function render(){
+    var html = renderHeader() +
+      '<main class="wrap">' + renderToolbar() + renderStorageBanner() + renderTable() + '</main>' +
+      renderSuratModal() + renderKelolaModal() + renderDetailModal() +
+      (ui.toast ? '<div class="toast">'+esc(ui.toast)+'</div>' : '') +
+      '<footer class="app-footer">SIMORIS &middot; data tersimpan di peramban perangkat ini</footer>';
+    document.getElementById("app").innerHTML = html;
+    bind();
+  }
+
+  function bind(){
+    var $ = function(id){ return document.getElementById(id); };
+
+    $("btnTambah").onclick = function(){ ui.modal="surat"; ui.editingId=null; ui.formKodeId=null; render(); };
+    $("btnKelola").onclick = function(){ ui.modal="kelola"; render(); };
+    $("btnLogout").onclick = function(){
+      if(!confirm("Keluar dari SIMORIS? Anda perlu memasukkan kata sandi lagi untuk membuka kembali.")) return;
+      setAuthed(false);
+      renderLogin();
+    };
+    $("btnCsv").onclick = exportCsv;
+    $("btnExcel").onclick = exportExcel;
+    $("btnJson").onclick = exportJson;
+    $("btnPrint").onclick = function(){ window.print(); };
+    $("btnImport").onclick = function(){ $("importFileInput").click(); };
+    $("btnRefreshSheet").onclick = function(){ refreshFromGoogleSheet($("btnRefreshSheet")); };
+    $("importFileInput").onchange = function(e){
+      var file = e.target.files[0];
+      if(!file) return;
+      var name = file.name.toLowerCase();
+      if(/\.(xlsx|xls)$/.test(name)){
+        var readerBin = new FileReader();
+        readerBin.onload = function(ev){ handleImportedExcel(ev.target.result); };
+        readerBin.readAsArrayBuffer(file);
+      } else {
+        var readerTxt = new FileReader();
+        readerTxt.onload = function(ev){ handleImportedText(ev.target.result, file.name); };
+        readerTxt.readAsText(file, "UTF-8");
+      }
+      e.target.value = "";
+    };
+
+    var si = $("searchInput");
+    si.oninput = function(e){
+      ui.search = e.target.value;
+      ui.page = 1;
+      render();
+      var el = $("searchInput");
+      el.focus(); el.selectionStart = el.selectionEnd = el.value.length;
+    };
+    $("kodeFilterSelect").onchange = function(e){ ui.kodeFilter = e.target.value; ui.page = 1; render(); };
+
+    var prevBtns = document.querySelectorAll(".js-prev-page");
+    var nextBtns = document.querySelectorAll(".js-next-page");
+    var sizeSelects = document.querySelectorAll(".js-page-size");
+    prevBtns.forEach(function(b){ b.onclick = function(){ ui.page = Math.max(1, ui.page-1); render(); }; });
+    nextBtns.forEach(function(b){ b.onclick = function(){ ui.page = ui.page+1; render(); }; });
+    sizeSelects.forEach(function(sel){ sel.onchange = function(e){ ui.pageSize = Number(e.target.value); ui.page = 1; render(); }; });
+    document.querySelectorAll("[data-page]").forEach(function(btn){
+      btn.onclick = function(){ ui.page = Number(btn.getAttribute("data-page")); render(); };
+    });
+
+    document.querySelectorAll("[data-edit]").forEach(function(btn){
+      btn.onclick = function(){ ui.modal="surat"; ui.editingId = Number(btn.getAttribute("data-edit")); ui.formKodeId=null; render(); };
+    });
+    document.querySelectorAll("[data-del]").forEach(function(btn){
+      btn.onclick = function(){
+        var id = Number(btn.getAttribute("data-del"));
+        var s = S.surats.filter(function(x){return x.id===id;})[0];
+        if(!confirm('Hapus surat "'+(s?nomorSurat(s.urut,s.kodeId):"")+'"? Tindakan ini tidak dapat dibatalkan.')) return;
+        S.surats = S.surats.filter(function(x){ return x.id!==id; });
+        save(S);
+        showToast("Surat dihapus.");
+      };
+    });
+    document.querySelectorAll("[data-row-detail]").forEach(function(el){
+      el.onclick = function(e){
+        if(e.target.closest("button")) return;
+        ui.modal = "detail";
+        ui.detailId = Number(el.getAttribute("data-row-detail"));
+        render();
+      };
+    });
+
+    if(ui.modal === "surat"){
+      $("closeSuratModal").onclick = closeSuratModal;
+      $("cancelSuratModal").onclick = closeSuratModal;
+      $("suratOverlay").onclick = function(e){ if(e.target.id==="suratOverlay") closeSuratModal(); };
+      $("fKode").onchange = function(e){ ui.formKodeId = Number(e.target.value); render(); };
+
+      $("submitSuratModal").onclick = function(){
+        var kodeId = Number($("fKode").value);
+        var tanggal = $("fTanggal").value;
+        var tujuan = $("fTujuan").value.trim();
+        var perihal = $("fPerihal").value.trim();
+        var dibuatOleh = $("fDibuatOleh").value.trim();
+        var err = $("formError");
+        if(!kodeId){ err.textContent="Pilih kode klasifikasi."; err.style.display="block"; return; }
+        if(!tanggal){ err.textContent="Tanggal surat wajib diisi."; err.style.display="block"; return; }
+        if(!perihal){ err.textContent="Perihal wajib diisi."; err.style.display="block"; return; }
+
+        if(ui.editingId){
+          var s = S.surats.filter(function(x){return x.id===ui.editingId;})[0];
+          s.kodeId = kodeId; s.tanggal = tanggal; s.tujuan = tujuan; s.perihal = perihal; s.dibuatOleh = dibuatOleh;
+          save(S);
+          ui.modal=null;
+          showToast("Perubahan tersimpan.");
+        } else {
+          S.counter += 1;
+          S.surats.unshift({ id:uid(), urut:S.counter, kodeId:kodeId, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:dibuatOleh });
+          save(S);
+          var nomor = nomorSurat(S.counter, kodeId);
+          ui.modal=null;
+          ui.page=1;
+          showToast("Nomor "+nomor+" berhasil diterbitkan.");
+        }
+      };
+    }
+
+    if(ui.modal === "detail"){
+      $("closeDetailModal").onclick = closeDetailModal;
+      $("closeDetailModal2").onclick = closeDetailModal;
+      $("detailOverlay").onclick = function(e){ if(e.target.id==="detailOverlay") closeDetailModal(); };
+      $("detailEditBtn").onclick = function(){
+        var id = ui.detailId;
+        ui.modal = "surat"; ui.editingId = id; ui.formKodeId = null;
+        render();
+      };
+    }
+
+    if(ui.modal === "kelola"){
+      $("closeKelolaModal").onclick = closeKelolaModal;
+      $("kelolaOverlay").onclick = function(e){ if(e.target.id==="kelolaOverlay") closeKelolaModal(); };
+
+      document.querySelectorAll("[data-nonaktif]").forEach(function(btn){
+        btn.onclick = function(){
+          var id = Number(btn.getAttribute("data-nonaktif"));
+          kodeOf(id).aktif = false;
+          save(S); render();
+        };
+      });
+      document.querySelectorAll("[data-aktifkan]").forEach(function(btn){
+        btn.onclick = function(){
+          var id = Number(btn.getAttribute("data-aktifkan"));
+          kodeOf(id).aktif = true;
+          save(S); render();
+        };
+      });
+
+      $("addKodeBtn").onclick = function(){
+        var kode = $("newKodeKode").value.trim();
+        var nama = $("newKodeNama").value.trim();
+        var err = $("kodeError");
+        if(!kode || !nama){ err.textContent="Isi kode dan nama."; err.style.display="block"; return; }
+        var dup = S.kodeList.some(function(k){ return k.kode.toLowerCase()===kode.toLowerCase(); });
+        if(dup){ err.textContent="Kode ini sudah ada."; err.style.display="block"; return; }
+        var warnaCycle = ["blue","green","emerald","amber","violet","red","slate"];
+        S.kodeList.push({ id:uid(), kode:kode, nama:nama, warna:warnaCycle[S.kodeList.length % warnaCycle.length], aktif:true });
+        save(S);
+        showToast("Kode "+kode+" ditambahkan.");
+      };
+
+      $("saveSettingsBtn").onclick = function(){
+        var instansi = $("setInstansi").value.trim() || "W.9";
+        var digit = Math.max(1, Math.min(6, Number($("setDigit").value) || 3));
+        S.settings.instansiKode = instansi;
+        S.settings.digit = digit;
+        save(S);
+        showToast("Pengaturan disimpan.");
+      };
+
+      $("saveSheetUrlBtn").onclick = function(){
+        var url = $("setSheetUrl").value.trim();
+        var err = $("sheetUrlError");
+        err.style.display = "none";
+        if(url && !/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
+          err.textContent = "Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...";
+          err.style.display = "block";
+          return;
+        }
+        S.settings.googleSheetUrl = url;
+        save(S);
+        showToast(url ? "Tautan Google Sheet disimpan." : "Tautan Google Sheet dikosongkan.");
+      };
+
+      $("testRefreshBtn").onclick = function(){
+        var url = $("setSheetUrl").value.trim();
+        var err = $("sheetUrlError");
+        err.style.display = "none";
+        if(!url){ err.textContent="Isi tautan CSV terlebih dahulu."; err.style.display="block"; return; }
+        if(!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
+          err.textContent = "Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...";
+          err.style.display = "block";
+          return;
+        }
+        S.settings.googleSheetUrl = url;
+        save(S);
+        closeKelolaModal();
+        refreshFromGoogleSheet(null);
+      };
+
+      $("changePwBtn").onclick = function(){
+        var oldPw = $("pwOld").value;
+        var newPw = $("pwNew").value;
+        var confirmPw = $("pwNewConfirm").value;
+        var err = $("pwError");
+        err.style.display = "none";
+        if(simpleHash(oldPw) !== getStoredPwHash()){
+          err.textContent = "Kata sandi saat ini salah."; err.style.display="block"; return;
+        }
+        if(newPw.length < 4){
+          err.textContent = "Kata sandi baru minimal 4 karakter."; err.style.display="block"; return;
+        }
+        if(newPw !== confirmPw){
+          err.textContent = "Konfirmasi kata sandi baru tidak cocok."; err.style.display="block"; return;
+        }
+        setStoredPwHash(simpleHash(newPw));
+        $("pwOld").value = ""; $("pwNew").value = ""; $("pwNewConfirm").value = "";
+        showToast("Kata sandi berhasil diubah.");
+      };
+    }
+  }
+
+  function closeSuratModal(){ ui.modal=null; ui.editingId=null; ui.formKodeId=null; render(); }
+  function closeKelolaModal(){ ui.modal=null; render(); }
+  function closeDetailModal(){ ui.modal=null; ui.detailId=null; render(); }
+
+  function exportCsv(){
+    var rows = filteredSurats();
+    var header = ["No","Nomor Surat","Tanggal","Tujuan","Perihal","Kode Klasifikasi"];
+    var lines = [header.join(",")];
+    rows.forEach(function(s){
+      var k = kodeOf(s.kodeId);
+      var cells = [
+        s.urut,
+        nomorSurat(s.urut,s.kodeId),
+        fmtTanggal(s.tanggal),
+        s.tujuan||"",
+        s.perihal,
+        k?k.kode:""
+      ].map(function(c){
+        var v = String(c).replace(/"/g,'""');
+        return /[",\n]/.test(v) ? '"'+v+'"' : v;
+      });
+      lines.push(cells.join(","));
+    });
+    var blob = new Blob(["\uFEFF"+lines.join("\r\n")], { type:"text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "simoris-rekap-"+isoToday(0)+".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportExcel(){
+    if(typeof XLSX === "undefined"){
+      alert("Pustaka Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
+      return;
+    }
+    var rows = filteredSurats().slice().sort(function(a,b){ return a.urut - b.urut; });
+    var data = [["NO","TUJUAN SURAT","TANGGAL SURAT","PERIHAL","NOMOR SURAT KELUAR / SURAT PERINTAH"]];
+    rows.forEach(function(s, idx){
+      data.push([ idx+1, s.tujuan||"", fmtTanggal(s.tanggal), s.perihal, nomorSurat(s.urut,s.kodeId) ]);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [{wch:5},{wch:22},{wch:18},{wch:42},{wch:30}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SIMORIS");
+    XLSX.writeFile(wb, "simoris-rekap-"+isoToday(0)+".xlsx");
+  }
+
+  function exportJson(){
+    var blob = new Blob([JSON.stringify(S, null, 2)], { type:"application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "simoris-cadangan-"+isoToday(0)+".json";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  var BULAN_ID = {
+    "januari":0,"februari":1,"maret":2,"april":3,"mei":4,"juni":5,
+    "juli":6,"agustus":7,"september":8,"oktober":9,"november":10,"desember":11
+  };
+
+  function parseTanggalIndo(str){
+    if(!str) return null;
+    str = String(str).trim();
+
+    // format ISO: 2026-01-06
+    var iso = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if(iso) return iso[1]+"-"+pad2(iso[2])+"-"+pad2(iso[3]);
+
+    // format dd/mm/yyyy atau dd-mm-yyyy
+    var slash = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if(slash) return slash[3]+"-"+pad2(slash[1])+"-"+pad2(slash[2]);
+
+    // format "6 Januari 2026"
+    var indo = str.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+    if(indo){
+      var bulanIdx = BULAN_ID[indo[2].toLowerCase()];
+      if(bulanIdx !== undefined) return indo[3]+"-"+pad2(bulanIdx+1)+"-"+pad2(indo[1]);
+    }
+    return null;
+  }
+  function pad2(n){ n = String(n); return n.length<2 ? "0"+n : n; }
+
+  function parseCsv(text){
+    // parser CSV sederhana yang menangani tanda kutip
+    var rows = [];
+    var i=0, field="", row=[], inQuotes=false;
+    text = text.replace(/^\uFEFF/, "");
+    while(i < text.length){
+      var c = text[i];
+      if(inQuotes){
+        if(c === '"'){
+          if(text[i+1] === '"'){ field += '"'; i+=2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++; continue;
+      } else {
+        if(c === '"'){ inQuotes = true; i++; continue; }
+        if(c === ','){ row.push(field); field=""; i++; continue; }
+        if(c === '\r'){ i++; continue; }
+        if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=""; i++; continue; }
+        field += c; i++; continue;
+      }
+    }
+    if(field.length || row.length){ row.push(field); rows.push(row); }
+    return rows.filter(function(r){ return r.some(function(c){ return String(c).trim() !== ""; }); });
+  }
+
+  function colIndex(header, keywords){
+    for(var i=0;i<header.length;i++){
+      var h = header[i].toLowerCase();
+      for(var j=0;j<keywords.length;j++){
+        if(h.indexOf(keywords[j]) > -1) return i;
+      }
+    }
+    return -1;
+  }
+
+  function ensureKode(kodeStr){
+    var found = S.kodeList.filter(function(k){ return k.kode.toLowerCase()===kodeStr.toLowerCase(); })[0];
+    if(found) return found;
+    var warnaCycle = ["blue","green","emerald","amber","violet","red","slate"];
+    var k = { id:uid(), kode:kodeStr, nama:"Impor otomatis", warna:warnaCycle[S.kodeList.length % warnaCycle.length], aktif:true };
+    S.kodeList.push(k);
+    return k;
+  }
+
+  function refreshFromGoogleSheet(btn){
+    var url = (S.settings.googleSheetUrl||"").trim();
+    if(!url){
+      alert('Tautan Google Sheet belum diatur.\n\nBuka "Kelola Kode" → bagian "Sumber data Google Sheet" untuk mengaturnya terlebih dahulu.');
+      ui.modal = "kelola";
+      render();
+      return;
+    }
+
+    var originalLabel = btn ? btn.textContent : "";
+    if(btn){ btn.textContent = "Memuat..."; btn.disabled = true; }
+
+    fetch(url, { cache:"no-store" })
+      .then(function(res){
+        if(!res.ok) throw new Error("Server merespons dengan status "+res.status);
+        return res.text();
+      })
+      .then(function(text){
+        if(/^\s*<(!doctype|html)/i.test(text)){
+          throw new Error("Tautan ini mengembalikan halaman HTML, bukan data CSV. Pastikan memakai tautan hasil \"Publikasikan ke web\" dengan format CSV.");
+        }
+        importRowsLegacy(parseCsv(text));
+      })
+      .catch(function(err){
+        alert('Gagal mengambil data dari Google Sheet.\n\n'+
+          'Pastikan:\n'+
+          '1. Sheet sudah "Dipublikasikan ke web" (bukan sekadar dibagikan), dengan format CSV.\n'+
+          '2. Tautan yang dipakai adalah tautan hasil publikasi (mengandung "/pub?output=csv"), bukan tautan edit biasa.\n'+
+          '3. Perangkat ini terhubung ke internet.\n\n'+
+          'Detail teknis: '+err.message);
+      })
+      .then(function(){
+        if(btn){ btn.textContent = originalLabel; btn.disabled = false; }
+      });
+  }
+
+  function handleImportedText(text, filename){
+    var isJson = /\.json$/i.test(filename) || /^\s*\{/.test(text);
+    if(isJson){ importJsonBackup(text); }
+    else { importRowsLegacy(parseCsv(text)); }
+  }
+
+  function handleImportedExcel(arrayBuffer){
+    if(typeof XLSX === "undefined"){
+      alert("Pustaka pembaca Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
+      return;
+    }
+    var wb;
+    try{ wb = XLSX.read(arrayBuffer, { type:"array", cellDates:true }); }
+    catch(e){ alert("File Excel tidak dapat dibaca. Pastikan file berformat .xlsx atau .xls yang valid."); return; }
+
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
+    var rows = raw.map(function(r){ return r.map(excelCellToStr); })
+                  .filter(function(r){ return r.some(function(c){ return String(c).trim() !== ""; }); });
+    importRowsLegacy(rows);
+  }
+
+  function excelCellToStr(v){
+    if(v instanceof Date && !isNaN(v)){
+      return v.getFullYear()+"-"+pad2(v.getMonth()+1)+"-"+pad2(v.getDate());
+    }
+    if(v === null || v === undefined) return "";
+    return String(v).trim();
+  }
+
+  function importJsonBackup(text){
+    var data;
+    try{ data = JSON.parse(text); }
+    catch(e){ alert("File JSON tidak valid."); return; }
+    if(!data || !Array.isArray(data.surats) || !Array.isArray(data.kodeList)){
+      alert("Struktur file JSON tidak dikenali. Gunakan file hasil tombol \"Cadangkan\"."); return;
+    }
+    if(!confirm("Menimpa seluruh data saat ini ("+S.surats.length+" surat) dengan isi file cadangan ("+data.surats.length+" surat)?")) return;
+    S = data;
+    resortSurats();
+    ui.page = 1;
+    save(S);
+    showToast("Data berhasil dipulihkan dari cadangan.");
+  }
+
+  /**
+   * Menerima data mentah berupa array-of-array (baris x kolom) — bisa berasal
+   * dari file CSV atau Excel (.xlsx/.xls) hasil rekap manual seperti pada
+   * spreadsheet lama: kolom TUJUAN SURAT, TANGGAL SURAT, PERIHAL, dan
+   * NOMOR SURAT KELUAR / SURAT PERINTAH. Kolom NO diabaikan (dibuat ulang
+   * otomatis). Header dicari otomatis di antara 10 baris pertama supaya
+   * baris judul tambahan di atas tabel tidak mengganggu.
+   */
+  function importRowsLegacy(rows){
+    if(rows.length < 2){ alert("File kosong atau tidak terbaca."); return; }
+
+    var headerIdx = 0;
+    for(var hi=0; hi<Math.min(rows.length,10); hi++){
+      if(colIndex(rows[hi], ["perihal"]) > -1){ headerIdx = hi; break; }
+    }
+    var header = rows[headerIdx];
+    var idxTujuan = colIndex(header, ["tujuan"]);
+    var idxTanggal = colIndex(header, ["tanggal"]);
+    var idxPerihal = colIndex(header, ["perihal"]);
+    var idxNomor = colIndex(header, ["nomor surat","nomor","no surat","no."]);
+    var idxKode = colIndex(header, ["kode klasifikasi","klasifikasi","kode"]);
+
+    if(idxPerihal === -1){
+      alert("Kolom \"Perihal\" tidak ditemukan. Pastikan file memiliki kolom Perihal seperti pada format spreadsheet sebelumnya."); return;
+    }
+
+    var existingNomor = {};
+    S.surats.forEach(function(s){ existingNomor[nomorSurat(s.urut,s.kodeId)] = true; });
+
+    // Pra-pindai seluruh baris untuk mencari nomor urut eksplisit tertinggi
+    // di file ini, supaya baris tanpa nomor (diberi nomor otomatis) TIDAK
+    // pernah bentrok dengan nomor eksplisit yang justru muncul belakangan
+    // di file yang sama.
+    for(var pr=headerIdx+1; pr<rows.length; pr++){
+      var nomorRawPra = idxNomor>-1 ? String(rows[pr][idxNomor]||"").trim() : "";
+      if(!nomorRawPra) continue;
+      var partsPra = nomorRawPra.split("-");
+      if(partsPra.length >= 3){
+        var urutStrPra = partsPra[partsPra.length-1];
+        if(/^\d+$/.test(urutStrPra)){
+          var urutPra = parseInt(urutStrPra, 10);
+          if(urutPra > S.counter) S.counter = urutPra;
+        }
+      }
+    }
+
+    var kodeUmum = null;
+    var ditambahkan = 0, dilewati = 0, maxUrutImpor = 0;
+
+    for(var r=headerIdx+1; r<rows.length; r++){
+      var cols = rows[r];
+      var perihal = idxPerihal>-1 ? String(cols[idxPerihal]||"").trim() : "";
+      if(!perihal) continue;
+      var tujuan = idxTujuan>-1 ? String(cols[idxTujuan]||"").trim() : "";
+      var tanggalRaw = idxTanggal>-1 ? String(cols[idxTanggal]||"").trim() : "";
+      var tanggal = parseTanggalIndo(tanggalRaw) || isoToday(0);
+      var nomorRaw = idxNomor>-1 ? String(cols[idxNomor]||"").trim() : "";
+      var kodeExplicit = idxKode>-1 ? String(cols[idxKode]||"").trim() : "";
+
+      var kodeObj = null, urut = null;
+
+      if(nomorRaw){
+        var parts = nomorRaw.split("-");
+        if(parts.length >= 3){
+          var urutStr = parts[parts.length-1];
+          var kodeStr = parts.slice(1, parts.length-1).join("-");
+          if(/^\d+$/.test(urutStr) && kodeStr){
+            urut = parseInt(urutStr, 10);
+            kodeObj = ensureKode(kodeStr);
+          }
+        }
+      }
+      if(!kodeObj && kodeExplicit){ kodeObj = ensureKode(kodeExplicit); }
+      if(!kodeObj){
+        if(!kodeUmum) kodeUmum = ensureKode("IMPOR");
+        kodeObj = kodeUmum;
+      }
+      if(urut === null){ S.counter += 1; urut = S.counter; }
+
+      var nomorFinal = nomorSurat(urut, kodeObj.id);
+      if(existingNomor[nomorFinal]){ dilewati++; continue; }
+      existingNomor[nomorFinal] = true;
+
+      S.surats.push({ id:uid(), urut:urut, kodeId:kodeObj.id, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:"" });
+      ditambahkan++;
+      if(urut > maxUrutImpor) maxUrutImpor = urut;
+    }
+
+    if(maxUrutImpor > S.counter) S.counter = maxUrutImpor;
+    resortSurats();
+    ui.page = 1;
+    save(S);
+    render();
+    showToast(ditambahkan+" surat diimpor"+(dilewati?", "+dilewati+" dilewati (sudah ada)":"")+".");
+  }
+
+  // ---------------- layar login ----------------
+
+  function renderLogin(errorMsg){
+    document.getElementById("app").innerHTML =
+      '<div class="login-wrap"><div class="login-card">'+
+        '<div class="login-brand">'+
+          '<div class="brand-mark">№</div>'+
+          '<h1>SIMORIS</h1>'+
+          '<p>Masuk untuk mengakses sistem penomoran surat</p>'+
+        '</div>'+
+        '<form id="loginForm">'+
+          '<div class="field"><label>Kata Sandi</label><input type="password" id="loginPw" autofocus placeholder="Masukkan kata sandi" /></div>'+
+          (errorMsg ? '<p class="error-text" style="margin-bottom:14px">'+esc(errorMsg)+'</p>' : '')+
+          '<button type="submit" class="btn-dark">Masuk</button>'+
+        '</form>'+
+      '</div></div>';
+
+    var form = document.getElementById("loginForm");
+    var pwInput = document.getElementById("loginPw");
+    pwInput.focus();
+    form.onsubmit = function(e){
+      e.preventDefault();
+      if(simpleHash(pwInput.value) === getStoredPwHash()){
+        setAuthed(true);
+        render();
+      } else {
+        renderLogin("Kata sandi salah. Coba lagi.");
+      }
+    };
+  }
+
+  if(isAuthed()){
+    render();
+  } else {
+    renderLogin();
+  }
+})();
+</script>
+</body>
+</html>
