@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SIMORIS — Sistem Penomoran Surat Otomatis</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --ink-900:#14264a; --ink-800:#1a3157; --ink-600:#2c4c7c; --ink-400:#5b729c;
@@ -41,6 +43,32 @@
   .btn-dark{ background:var(--ink-900); color:#fff; }
   .btn-dark:hover{ background:var(--ink-800); }
   .btn-danger-text{ background:none; color:var(--red); font-weight:600; font-size:12px; padding:4px 6px; }
+
+  .row-actions{ display:flex; gap:6px; justify-content:flex-end; }
+  .icon-btn{ width:30px; height:30px; border-radius:8px; border:none; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s,transform .1s; flex-shrink:0; }
+  .icon-btn:active{ transform:scale(.92); }
+  .icon-btn svg{ width:15px; height:15px; }
+  .icon-btn-edit{ background:var(--ink-50); color:var(--ink-600); }
+  .icon-btn-edit:hover{ background:var(--ink-100); color:var(--ink-900); }
+  .icon-btn-delete{ background:var(--red-bg); color:var(--red); }
+  .icon-btn-delete:hover{ background:#f6cac6; }
+  .pill-btn{ display:inline-flex; align-items:center; gap:6px; border:none; border-radius:8px; font-weight:600; font-size:12.5px; padding:8px 12px; cursor:pointer; transition:background .15s,transform .1s; }
+  .pill-btn:active{ transform:scale(.97); }
+  .pill-btn svg{ width:14px; height:14px; flex-shrink:0; }
+  .pill-btn-edit{ background:var(--ink-50); color:var(--ink-700); }
+  .pill-btn-edit:hover{ background:var(--ink-100); }
+  .pill-btn-delete{ background:var(--red-bg); color:var(--red); }
+  .pill-btn-delete:hover{ background:#f6cac6; }
+
+  .dropdown-wrap{ position:relative; display:inline-flex; }
+  .dropdown-wrap .btn{ display:inline-flex; align-items:center; gap:6px; }
+  .dropdown-wrap .btn svg{ width:14px; height:14px; flex-shrink:0; }
+  .dropdown-menu{ position:absolute; top:calc(100% + 6px); left:0; background:#fff; border:1px solid var(--ink-100); border-radius:10px; box-shadow:0 10px 30px rgba(20,38,74,.18); padding:6px; min-width:170px; z-index:40; }
+  .dropdown-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:9px 12px; border-radius:7px; font-size:13px; color:var(--ink-800); cursor:pointer; font-weight:500; }
+  .dropdown-item:hover{ background:var(--ink-50); }
+  @media (max-width:760px){
+    .dropdown-menu{ left:auto; right:0; }
+  }
   main{ padding:28px 0 60px; }
   .toolbar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
   .toolbar input[type=text], .toolbar select{
@@ -104,8 +132,8 @@
   .surat-card .nomor-badge{ font-size:12.5px; }
   .surat-card-perihal{ font-weight:700; font-size:13.5px; margin:0 0 4px; line-height:1.35; }
   .surat-card-meta{ color:var(--ink-600); font-size:12.5px; margin:0 0 2px; }
-  .surat-card-actions{ display:flex; gap:14px; margin-top:10px; padding-top:10px; border-top:1px solid var(--ink-100); }
-  .surat-card-actions button{ font-size:12.5px; font-weight:700; }
+  .surat-card-actions{ display:flex; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--ink-100); }
+  .surat-card-actions .pill-btn{ flex:1; justify-content:center; }
 
   .row-clickable{ cursor:pointer; }
   .surat-card.row-clickable:active{ background:var(--paper); }
@@ -160,6 +188,8 @@
     .toolbar select{ min-width:0; width:100%; }
     .toolbar-right{ margin-left:0; width:100%; gap:8px; flex-wrap:wrap; }
     .toolbar-right .btn{ flex:1 1 calc(50% - 4px); justify-content:center; padding:9px 8px; font-size:12px; white-space:nowrap; }
+    .toolbar-right .dropdown-wrap{ flex:1 1 calc(50% - 4px); }
+    .toolbar-right .dropdown-wrap .btn{ width:100%; }
     .grid2{ grid-template-columns:1fr; }
     .modal{ max-width:100%; border-radius:14px 14px 0 0; align-self:flex-end; }
     .overlay{ align-items:flex-end; padding:0; }
@@ -227,18 +257,30 @@
   // Kode Google Apps Script siap-tempel supaya surat yang diterbitkan dari
   // SIMORIS bisa ikut tercatat otomatis di Google Sheet (fitur tulis-balik,
   // opsional). Ditampilkan di panel "Kelola Kode" untuk disalin pengguna.
+  var ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+  var ICON_DELETE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+  var ICON_DOWNLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>';
+  var ICON_CHEVRON_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
   var APPS_SCRIPT_SNIPPET =
     'function doGet(e) {\n' +
-    '  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
-    '  var p = e.parameter;\n' +
-    '  sheet.appendRow([\n' +
-    '    sheet.getLastRow(),   // NO — sesuaikan urutan kolom kalau beda\n' +
-    '    p.tujuan  || "",      // TUJUAN SURAT\n' +
-    '    p.tanggal || "",      // TANGGAL SURAT\n' +
-    '    p.perihal || "",      // PERIHAL\n' +
-    '    p.nomor   || ""       // NOMOR SURAT KELUAR / SURAT PERINTAH\n' +
-    '  ]);\n' +
-    '  return ContentService.createTextOutput("OK");\n' +
+    '  var lock = LockService.getScriptLock();\n' +
+    '  lock.waitLock(10000); // tunggu giliran kalau ada device lain menulis bersamaan\n' +
+    '  try {\n' +
+    '    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
+    '    var p = e.parameter;\n' +
+    '    var lastRow = sheet.getLastRow();\n' +
+    '    var lastNo = lastRow >= 2 ? Number(sheet.getRange(lastRow, 1).getValue()) || 0 : 0;\n' +
+    '    var nextNo = lastNo + 1;\n' +
+    '    var digit = Number(p.digit) || 3;\n' +
+    '    var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" +\n' +
+    '      ("0000" + nextNo).slice(-digit);\n' +
+    '    sheet.appendRow([nextNo, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor]);\n' +
+    '    return ContentService.createTextOutput(JSON.stringify({ ok:true, urut:nextNo, nomor:nomor }))\n' +
+    '      .setMimeType(ContentService.MimeType.JSON);\n' +
+    '  } finally {\n' +
+    '    lock.releaseLock();\n' +
+    '  }\n' +
     '}';
 
   var DEFAULT_KODE = [
@@ -280,7 +322,7 @@
   if(typeof S.settings.googleSheetUrl === "undefined") S.settings.googleSheetUrl = "";
   if(typeof S.settings.appsScriptUrl === "undefined") S.settings.appsScriptUrl = "";
   resortSurats();
-  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null, page:1, pageSize:50, confirmMessage:"", confirmOnYes:null, noticeTitle:"", noticeMessage:"" };
+  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null, page:1, pageSize:50, confirmMessage:"", confirmOnYes:null, noticeTitle:"", noticeMessage:"", downloadMenuOpen:false, appsScriptExpanded:false };
 
   function kodeOf(id){
     for(var i=0;i<S.kodeList.length;i++){ if(S.kodeList[i].id===id) return S.kodeList[i]; }
@@ -388,10 +430,18 @@
         '<button class="btn btn-segel" id="btnRefreshSheet">Refresh Google Sheet</button>'+
         '<button class="btn btn-ghost" id="btnImport">Impor Excel/CSV</button>'+
         '<input type="file" id="importFileInput" accept=".json,.csv,.xlsx,.xls" class="visually-hidden" />'+
-        '<button class="btn btn-ghost" id="btnExcel">Unduh Excel</button>'+
-        '<button class="btn btn-ghost" id="btnCsv">Unduh CSV</button>'+
+        '<div class="dropdown-wrap">'+
+          '<button class="btn btn-ghost" id="btnDownloadMenu">'+ICON_DOWNLOAD+'Unduh'+ICON_CHEVRON_DOWN+'</button>'+
+          (ui.downloadMenuOpen ? (
+            '<div class="dropdown-menu">'+
+              '<button class="dropdown-item" id="menuUnduhExcel">Excel (.xlsx)</button>'+
+              '<button class="dropdown-item" id="menuUnduhCsv">CSV (.csv)</button>'+
+              '<button class="dropdown-item" id="menuUnduhPdf">PDF (.pdf)</button>'+
+              '<button class="dropdown-item" id="menuCetak">Cetak</button>'+
+            '</div>'
+          ) : '')+
+        '</div>'+
         '<button class="btn btn-ghost" id="btnJson">Cadangkan</button>'+
-        '<button class="btn btn-ghost" id="btnPrint">Cetak</button>'+
       '</div>'+
     '</div>';
   }
@@ -418,8 +468,10 @@
         '<td class="truncate" title="'+esc(s.perihal)+'">'+esc(s.perihal)+'</td>'+
         '<td>'+(k?'<span class="badge '+warnaCls+'">'+esc(k.kode)+'</span>':'—')+'</td>'+
         '<td style="text-align:right">'+
-          '<button class="btn-danger-text" data-edit="'+s.id+'" style="color:var(--ink-600)">Ubah</button>'+
-          '<button class="btn-danger-text" data-del="'+s.id+'">Hapus</button>'+
+          '<div class="row-actions">'+
+            '<button class="icon-btn icon-btn-edit" data-edit="'+s.id+'" title="Ubah">'+ICON_EDIT+'</button>'+
+            '<button class="icon-btn icon-btn-delete" data-del="'+s.id+'" title="Hapus">'+ICON_DELETE+'</button>'+
+          '</div>'+
         '</td>'+
       '</tr>';
     }).join("");
@@ -440,8 +492,8 @@
         '<p class="surat-card-perihal">'+esc(s.perihal)+'</p>'+
         '<p class="surat-card-meta">'+fmtTanggal(s.tanggal)+(s.tujuan?' &middot; Tujuan: '+esc(s.tujuan):'')+'</p>'+
         '<div class="surat-card-actions">'+
-          '<button class="btn-danger-text" data-edit="'+s.id+'" style="color:var(--ink-600);padding:0">Ubah</button>'+
-          '<button class="btn-danger-text" data-del="'+s.id+'" style="padding:0">Hapus</button>'+
+          '<button class="pill-btn pill-btn-edit" data-edit="'+s.id+'">'+ICON_EDIT+'Ubah</button>'+
+          '<button class="pill-btn pill-btn-delete" data-del="'+s.id+'">'+ICON_DELETE+'Hapus</button>'+
         '</div>'+
       '</div>';
     }).join("");
@@ -655,13 +707,32 @@
           '<button class="btn-dark" id="changePwBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">Ubah Kata Sandi</button>'+
         '</div>'+
         '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
-          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Tulis balik ke Google Sheet (opsional)</p>'+
-          '<p class="hint" style="margin-bottom:10px;line-height:1.5">Supaya surat yang diterbitkan LANGSUNG dari SIMORIS ikut tercatat otomatis di sheet: buka sheet Anda → <b>Extensions → Apps Script</b> → tempel kode di bawah → <b>Deploy → New deployment → Web app</b> (Execute as: Me, Who has access: Anyone) → salin URL yang diberikan ke kolom di bawah.</p>'+
-          '<textarea class="code-snippet" readonly rows="9" onclick="this.select()">'+esc(APPS_SCRIPT_SNIPPET)+'</textarea>'+
-          '<div class="field" style="margin-top:10px"><label>URL Web App Apps Script</label><input type="text" id="setAppsScriptUrl" placeholder="https://script.google.com/macros/s/XXXXX/exec" value="'+esc(S.settings.appsScriptUrl||"")+'" /></div>'+
-          '<p class="error-text" id="appsScriptError" style="display:none;margin-top:8px"></p>'+
-          '<p class="hint" style="margin-top:8px">Catatan: hanya surat yang <b>diterbitkan baru</b> dari SIMORIS yang dikirim ke sheet. Perubahan/hapus di SIMORIS maupun sinkron dari sheet tidak dikirim balik (mencegah data saling menimpa).</p>'+
-          '<button class="btn-ghost" id="saveAppsScriptBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">Simpan URL Tulis-Balik</button>'+
+          '<button id="toggleAppsScript" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:0;cursor:pointer;text-align:left">'+
+            '<span class="hint" style="font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Tulis balik ke Google Sheet (lanjutan, opsional)</span>'+
+            '<span style="color:var(--ink-400);transition:transform .15s;'+(ui.appsScriptExpanded?'transform:rotate(180deg)':'')+'">'+ICON_CHEVRON_DOWN+'</span>'+
+          '</button>'+
+          (S.settings.appsScriptUrl ? '<p class="hint" style="margin-top:6px;color:var(--green)">✓ Aktif — surat baru otomatis tercatat ke sheet</p>' : '<p class="hint" style="margin-top:6px">Nonaktif. Surat tetap tersimpan normal di perangkat ini tanpa fitur ini.</p>')+
+          (ui.appsScriptExpanded ? (
+            '<div style="margin-top:12px">'+
+              '<p class="hint" style="margin-bottom:10px;line-height:1.6">Supaya surat yang diterbitkan dari SIMORIS ikut tercatat otomatis di sheet, ikuti langkah berikut sekali saja:</p>'+
+              '<ol style="font-size:12.5px;color:var(--ink-700);line-height:2;margin:0 0 12px;padding-left:20px">'+
+                '<li>Buka Google Sheet Anda, klik menu <b>Extensions</b> → <b>Apps Script</b>.</li>'+
+                '<li>Hapus tulisan yang ada, lalu tempel kode di bawah ini (klik "Salin Kode" dulu).</li>'+
+                '<li>Klik <b>Deploy</b> (kanan atas) → <b>New deployment</b>.</li>'+
+                '<li>Klik ikon gerigi ⚙️ di samping "Select type" → pilih <b>Web app</b>.</li>'+
+                '<li>Pada "Who has access", pilih <b>Anyone</b> → klik <b>Deploy</b> → izinkan akses jika diminta.</li>'+
+                '<li>Salin <b>URL Web app</b> yang muncul → tempel di kolom di bawah → Simpan.</li>'+
+              '</ol>'+
+              '<div style="position:relative">'+
+                '<textarea class="code-snippet" readonly rows="9" id="appsScriptTextarea" onclick="this.select()">'+esc(APPS_SCRIPT_SNIPPET)+'</textarea>'+
+                '<button id="copyAppsScriptBtn" class="btn btn-ghost" style="position:absolute;top:8px;right:8px;padding:6px 10px;font-size:11.5px">Salin Kode</button>'+
+              '</div>'+
+              '<div class="field" style="margin-top:10px"><label>URL Web App Apps Script</label><input type="text" id="setAppsScriptUrl" placeholder="https://script.google.com/macros/s/XXXXX/exec" value="'+esc(S.settings.appsScriptUrl||"")+'" /></div>'+
+              '<p class="error-text" id="appsScriptError" style="display:none;margin-top:8px"></p>'+
+              '<p class="hint" style="margin-top:8px">Catatan: hanya surat <b>baru</b> dari SIMORIS yang dikirim ke sheet. Kalau URL ini diisi, nomor surat akan diminta dari sheet (lebih aman kalau dipakai banyak perangkat sekaligus) — kalau sheet tidak terjangkau, SIMORIS otomatis memakai nomor lokal sebagai cadangan.</p>'+
+              '<button class="btn-dark" id="saveAppsScriptBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">Simpan URL Tulis-Balik</button>'+
+            '</div>'
+          ) : '')+
         '</div>'+
         '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
           '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--red);text-transform:uppercase;font-size:11px">Zona Bahaya</p>'+
@@ -713,12 +784,32 @@
         renderLogin();
       });
     };
-    $("btnCsv").onclick = exportCsv;
-    $("btnExcel").onclick = exportExcel;
     $("btnJson").onclick = exportJson;
-    $("btnPrint").onclick = function(){ window.print(); };
     $("btnImport").onclick = function(){ $("importFileInput").click(); };
     $("btnRefreshSheet").onclick = function(){ refreshFromGoogleSheet($("btnRefreshSheet")); };
+
+    var downloadBtn = $("btnDownloadMenu");
+    if(downloadBtn){
+      downloadBtn.onclick = function(e){
+        e.stopPropagation();
+        ui.downloadMenuOpen = !ui.downloadMenuOpen;
+        render();
+      };
+    }
+    if(ui.downloadMenuOpen){
+      $("menuUnduhExcel").onclick = function(){ ui.downloadMenuOpen=false; exportExcel(); render(); };
+      $("menuUnduhCsv").onclick = function(){ ui.downloadMenuOpen=false; exportCsv(); render(); };
+      $("menuUnduhPdf").onclick = function(){ ui.downloadMenuOpen=false; exportPdf(); render(); };
+      $("menuCetak").onclick = function(){ ui.downloadMenuOpen=false; render(); window.print(); };
+      // klik di luar menu untuk menutupnya
+      setTimeout(function(){
+        document.addEventListener("click", function closeMenuOnce(){
+          ui.downloadMenuOpen = false;
+          render();
+          document.removeEventListener("click", closeMenuOnce);
+        }, { once:true });
+      }, 0);
+    }
     $("importFileInput").onchange = function(e){
       var file = e.target.files[0];
       if(!file) return;
@@ -802,15 +893,28 @@
           ui.modal=null;
           showToast("Perubahan tersimpan.");
         } else {
-          S.counter += 1;
-          var newSurat = { id:uid(), urut:S.counter, kodeId:kodeId, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:dibuatOleh, sumber:"manual", nomorOverride:null };
-          S.surats.unshift(newSurat);
-          save(S);
-          var nomor = nomorSurat(S.counter, kodeId);
-          ui.modal=null;
-          ui.page=1;
-          showToast("Nomor "+nomor+" berhasil diterbitkan.");
-          pushSuratToSheet(newSurat);
+          var kodeObjForPush = kodeOf(kodeId);
+          var appsUrl = (S.settings.appsScriptUrl||"").trim();
+
+          if(appsUrl && kodeObjForPush){
+            var submitBtn = $("submitSuratModal");
+            var originalBtnLabel = submitBtn.textContent;
+            submitBtn.textContent = "Menerbitkan...";
+            submitBtn.disabled = true;
+            requestNomorFromSheet(kodeObjForPush.kode, tujuan, tanggal, perihal, function(hasil){
+              if(hasil.ok){
+                finalizeNewSurat(hasil.urut, kodeId, hasil.nomor, tujuan, perihal, tanggal, dibuatOleh,
+                  "Nomor "+hasil.nomor+" berhasil diterbitkan & tersinkron ke sheet.");
+              } else {
+                S.counter += 1;
+                finalizeNewSurat(S.counter, kodeId, null, tujuan, perihal, tanggal, dibuatOleh,
+                  "Nomor diterbitkan secara lokal (gagal terhubung ke sheet). Sinkronkan manual nanti.");
+              }
+            });
+          } else {
+            S.counter += 1;
+            finalizeNewSurat(S.counter, kodeId, null, tujuan, perihal, tanggal, dibuatOleh);
+          }
         }
       };
     }
@@ -933,19 +1037,34 @@
         showToast("Kata sandi berhasil diubah.");
       };
 
-      $("saveAppsScriptBtn").onclick = function(){
-        var url = $("setAppsScriptUrl").value.trim();
-        var err = $("appsScriptError");
-        err.style.display = "none";
-        if(url && !/^https:\/\/script\.google\.com\/macros\//.test(url)){
-          err.textContent = "URL sepertinya bukan URL Web App Apps Script. Harus diawali https://script.google.com/macros/...";
-          err.style.display = "block";
-          return;
-        }
-        S.settings.appsScriptUrl = url;
-        save(S);
-        showToast(url ? "URL tulis-balik disimpan." : "URL tulis-balik dikosongkan.");
-      };
+      $("toggleAppsScript").onclick = function(){ ui.appsScriptExpanded = !ui.appsScriptExpanded; render(); };
+
+      if(ui.appsScriptExpanded){
+        $("copyAppsScriptBtn").onclick = function(){
+          var ta = $("appsScriptTextarea");
+          var btn = $("copyAppsScriptBtn");
+          function done(){ var orig=btn.textContent; btn.textContent="Tersalin ✓"; setTimeout(function(){ btn.textContent=orig; }, 1800); }
+          if(navigator.clipboard && navigator.clipboard.writeText){
+            navigator.clipboard.writeText(APPS_SCRIPT_SNIPPET).then(done).catch(function(){ ta.select(); document.execCommand("copy"); done(); });
+          } else {
+            ta.select(); document.execCommand("copy"); done();
+          }
+        };
+
+        $("saveAppsScriptBtn").onclick = function(){
+          var url = $("setAppsScriptUrl").value.trim();
+          var err = $("appsScriptError");
+          err.style.display = "none";
+          if(url && !/^https:\/\/script\.google\.com\/macros\//.test(url)){
+            err.textContent = "URL sepertinya bukan URL Web App Apps Script. Harus diawali https://script.google.com/macros/...";
+            err.style.display = "block";
+            return;
+          }
+          S.settings.appsScriptUrl = url;
+          save(S);
+          showToast(url ? "URL tulis-balik disimpan." : "URL tulis-balik dikosongkan.");
+        };
+      }
 
       $("btnHapusSemua").onclick = function(){ ui.modal = "hapusSemua"; render(); };
     }
@@ -976,6 +1095,23 @@
         showToast("Semua data surat telah dihapus.");
       };
     }
+  }
+
+  /**
+   * Menyelesaikan pembuatan surat baru: simpan lokal, tutup modal, tampilkan
+   * toast. Dipakai baik saat nomor berhasil didapat dari Apps Script
+   * (nomorOverride terisi teks persis dari sheet) maupun saat memakai
+   * penomoran lokal biasa (nomorOverride null, dihitung dari kode+urut).
+   */
+  function finalizeNewSurat(urut, kodeId, nomorOverride, tujuan, perihal, tanggal, dibuatOleh, customMsg){
+    if(urut > S.counter) S.counter = urut;
+    var newSurat = { id:uid(), urut:urut, kodeId:kodeId, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:dibuatOleh, sumber:"manual", nomorOverride: nomorOverride||null };
+    S.surats.unshift(newSurat);
+    resortSurats();
+    save(S);
+    ui.modal=null;
+    ui.page=1;
+    showToast(customMsg || ("Nomor "+displayNomor(newSurat)+" berhasil diterbitkan."));
   }
 
   function closeSuratModal(){ ui.modal=null; ui.editingId=null; ui.formKodeId=null; render(); }
@@ -1025,6 +1161,33 @@
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "SIMORIS");
     XLSX.writeFile(wb, "simoris-rekap-"+isoToday(0)+".xlsx");
+  }
+
+  function exportPdf(){
+    if(typeof window.jspdf === "undefined"){
+      showNotice("Pustaka Belum Siap", "Pustaka PDF belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
+      return;
+    }
+    var rows = filteredSurats().slice().sort(function(a,b){ return a.urut - b.urut; });
+    var body = rows.map(function(s, idx){
+      return [ idx+1, s.tujuan||"-", fmtTanggal(s.tanggal), s.perihal, displayNomor(s) ];
+    });
+    var doc = new window.jspdf.jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
+    doc.setFontSize(13);
+    doc.text("SIMORIS - Rekap Surat", 40, 34);
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text("Diunduh "+fmtTanggal(isoToday(0))+" - "+rows.length+" surat", 40, 48);
+    doc.autoTable({
+      startY: 60,
+      head: [["No","Tujuan Surat","Tanggal Surat","Perihal","Nomor Surat"]],
+      body: body,
+      styles: { fontSize:9, cellPadding:6 },
+      headStyles: { fillColor:[20,38,74], textColor:255, fontStyle:"bold" },
+      alternateRowStyles: { fillColor:[248,246,241] },
+      columnStyles: { 0:{ cellWidth:30 } }
+    });
+    doc.save("simoris-rekap-"+isoToday(0)+".pdf");
   }
 
   function exportJson(){
@@ -1221,24 +1384,47 @@
   }
 
   /**
-   * Kirim satu surat baru ke Google Sheet lewat Web App Apps Script
-   * (fitur tulis-balik, opsional). Best-effort dan tidak pernah memblokir:
-   * penyimpanan lokal SIMORIS selalu jadi sumber kebenaran utama — kalau
-   * pengiriman ini gagal (offline, URL belum diatur, dsb), surat tetap
-   * aman tersimpan secara lokal seperti biasa.
+   * Meminta Apps Script menerbitkan nomor urut BERIKUTNYA dan menuliskannya
+   * langsung ke Google Sheet — dipakai supaya kalau ada beberapa perangkat
+   * menerbitkan surat pada saat bersamaan, yang menentukan angka final
+   * adalah Apps Script (dengan LockService, satu per satu bergiliran),
+   * bukan masing-masing perangkat menebak sendiri. Ini mencegah dua
+   * perangkat kebagian nomor yang sama.
+   *
+   * callback(hasil) dipanggil dengan { ok:true, urut, nomor } kalau
+   * berhasil, atau { ok:false } kalau gagal/timeout/URL belum diatur —
+   * pemanggil WAJIB punya jalur cadangan (nomor lokal) untuk kasus gagal,
+   * supaya SIMORIS tetap bisa dipakai walau sedang offline.
    */
-  function pushSuratToSheet(surat){
+  function requestNomorFromSheet(kodeStr, tujuan, tanggal, perihal, callback){
     var url = (S.settings.appsScriptUrl||"").trim();
-    if(!url) return;
-    var qs = "tujuan="+encodeURIComponent(surat.tujuan||"")+
-      "&tanggal="+encodeURIComponent(fmtTanggal(surat.tanggal))+
-      "&perihal="+encodeURIComponent(surat.perihal||"")+
-      "&nomor="+encodeURIComponent(displayNomor(surat));
-    // mode "no-cors": kita tidak bisa membaca hasilnya, tapi permintaan
-    // tetap terkirim & diproses di sisi Apps Script — cukup untuk aksi
-    // "tulis" satu arah seperti ini.
-    fetch(url + (url.indexOf("?")>-1 ? "&" : "?") + qs, { method:"GET", mode:"no-cors" })
-      .catch(function(){ /* gagal diam-diam, data lokal tetap aman */ });
+    if(!url){ callback({ ok:false }); return; }
+
+    var qs = "kode="+encodeURIComponent(kodeStr)+
+      "&instansi="+encodeURIComponent(S.settings.instansiKode)+
+      "&digit="+encodeURIComponent(S.settings.digit)+
+      "&tujuan="+encodeURIComponent(tujuan||"")+
+      "&tanggal="+encodeURIComponent(fmtTanggal(tanggal))+
+      "&perihal="+encodeURIComponent(perihal||"");
+
+    var hasAbort = typeof AbortController !== "undefined";
+    var controller = hasAbort ? new AbortController() : null;
+    var timer = controller ? setTimeout(function(){ controller.abort(); }, 12000) : null;
+
+    fetch(url + (url.indexOf("?")>-1 ? "&" : "?") + qs, { method:"GET", signal: controller ? controller.signal : undefined })
+      .then(function(res){
+        if(timer) clearTimeout(timer);
+        if(!res.ok) throw new Error("HTTP "+res.status);
+        return res.json();
+      })
+      .then(function(data){
+        if(!data || !data.ok) throw new Error("respons tidak valid");
+        callback({ ok:true, urut:data.urut, nomor:data.nomor });
+      })
+      .catch(function(){
+        if(timer) clearTimeout(timer);
+        callback({ ok:false });
+      });
   }
 
   function refreshFromGoogleSheet(btn){
@@ -1420,6 +1606,7 @@
     }
 
     var posCounter = 0;
+    var maxUrutSheet = 0;
     var freshSheetSurats = parsedRows.map(function(pr){
       posCounter++;
       var tanggal = parseTanggalIndo(pr.tanggalRaw) || isoToday(0);
@@ -1430,6 +1617,7 @@
       if(!kodeObj && pr.kodeExplicit){ kodeObj = ensureKode(pr.kodeExplicit); }
       if(!kodeObj){ kodeObj = ensureKode("SHEET"); }
       if(urut === null){ urut = posCounter; }
+      if(urut > maxUrutSheet) maxUrutSheet = urut;
 
       return {
         id: uid()+posCounter,
@@ -1443,6 +1631,12 @@
         nomorOverride: pr.nomorRaw || null
       };
     });
+
+    // Lanjutkan nomor urut SIMORIS dari nomor tertinggi yang ada di sheet
+    // (bukan mulai dari 0/ulang), supaya surat yang diterbitkan baru dari
+    // SIMORIS setelah sinkron tidak bentrok dengan nomor yang sudah dipakai
+    // di sheet — dan tidak ada nomor yang "terbuang" karena dimulai ulang.
+    if(maxUrutSheet > S.counter) S.counter = maxUrutSheet;
 
     // GANTI TOTAL: buang seluruh data lama bersumber sheet, pasang hasil
     // sinkron terbaru — bukan ditambahkan.
