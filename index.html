@@ -4,55 +4,96 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SIMORIS — Sistem Penomoran Surat Otomatis</title>
+
+<!-- Font: Fraunces (display, untuk identitas "surat resmi") + Inter (UI) + JetBrains Mono (nomor surat) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
 <style>
   :root{
-    --ink-900:#14264a; --ink-800:#1a3157; --ink-600:#2c4c7c; --ink-400:#5b729c;
-    --ink-100:#e3e9f2; --ink-50:#f3f6fa; --segel:#c98a2e; --paper:#f8f6f1;
-    --red:#b3413a; --red-bg:#fbe9e7; --green:#2f7d5c; --green-bg:#e3f3ea;
-    --amber-bg:#fbeed4; --violet:#6a4c93; --violet-bg:#ece5f5; --blue-bg:#e3e9f2;
+    --ink-900:#12213f; --ink-800:#1a3157; --ink-700:#233f6b; --ink-600:#2c4c7c; --ink-400:#5b729c; --ink-300:#8a9bbd;
+    --ink-100:#e3e9f2; --ink-50:#f3f6fa;
+    --segel:#c98a2e; --segel-dark:#a8721f; --segel-bg:rgba(201,138,46,.10);
+    --paper:#f8f6f1; --paper-2:#efece1;
+    --red:#b3413a; --red-bg:#fbe9e7;
+    --green:#2f7d5c; --green-bg:#e3f3ea;
+    --amber-bg:#fbeed4; --amber:#9a6316;
+    --violet:#6a4c93; --violet-bg:#ece5f5;
+    --blue-bg:#e3e9f2;
+    --slate:#475569; --slate-bg:#eef1f5;
+    --font-display:'Fraunces',ui-serif,Georgia,serif;
+    --font-body:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:'JetBrains Mono',"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --shadow-sm:0 1px 2px rgba(18,33,63,.06);
+    --shadow-md:0 8px 24px -10px rgba(18,33,63,.22);
+    --shadow-lg:0 24px 60px -16px rgba(18,33,63,.35);
+    --ease:cubic-bezier(.22,.9,.32,1.09);
   }
   *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
   body{
     margin:0; background:var(--paper); color:var(--ink-900);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    font-size:14px;
+    font-family:var(--font-body); font-size:14px; line-height:1.45;
+    -webkit-font-smoothing:antialiased;
   }
-  .mono{ font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; }
-  header.app-header{ background:var(--ink-900); color:#fff; }
-  .wrap{ max-width:1080px; margin:0 auto; padding:0 24px; }
-  .header-inner{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 0; flex-wrap:wrap; }
+  .mono{ font-family:var(--font-mono); }
+  ::selection{ background:var(--segel-bg); color:var(--ink-900); }
+  :focus-visible{ outline:2.5px solid var(--segel); outline-offset:2px; border-radius:4px; }
+
+  /* ---------- surface tekstur kertas resmi ---------- */
+  .paper-texture{
+    background-image:
+      radial-gradient(circle at 100% 0%, rgba(201,138,46,.05), transparent 45%),
+      repeating-linear-gradient(135deg, rgba(18,33,63,.018) 0px, rgba(18,33,63,.018) 1px, transparent 1px, transparent 13px);
+  }
+
+  header.app-header{ background:linear-gradient(180deg,var(--ink-900),#0e1a33); color:#fff; position:sticky; top:0; z-index:30; box-shadow:0 1px 0 rgba(255,255,255,.06), 0 10px 30px -18px rgba(0,0,0,.6); }
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 24px; }
+  .header-inner{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 0; flex-wrap:wrap; }
   .brand{ display:flex; align-items:center; gap:14px; }
-  .brand-mark{ width:42px; height:42px; border-radius:10px; background:rgba(201,138,46,.92);
-    border:1.5px dashed rgba(255,255,255,.45); display:flex; align-items:center; justify-content:center;
-    font-weight:700; font-size:15px; color:var(--ink-900); }
-  .brand h1{ font-size:17px; margin:0; font-weight:800; letter-spacing:.2px; }
-  .brand p{ margin:2px 0 0; font-size:12px; color:rgba(255,255,255,.7); }
-  .header-actions{ display:flex; align-items:center; gap:18px; }
+  .brand-mark{ width:44px; height:44px; border-radius:10px; background:var(--segel);
+    border:1.5px dashed rgba(255,255,255,.5); display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:17px; color:var(--ink-900); font-family:var(--font-display); flex-shrink:0;
+    box-shadow:inset 0 0 0 3px rgba(255,255,255,.12); }
+  .brand h1{ font-size:19px; margin:0; font-weight:700; letter-spacing:.3px; font-family:var(--font-display); }
+  .brand p{ margin:2px 0 0; font-size:11.5px; color:rgba(255,255,255,.62); letter-spacing:.15px; }
+  .header-actions{ display:flex; align-items:center; gap:14px; }
   .count-box{ text-align:right; }
-  .count-box p{ margin:0; font-size:11px; color:rgba(255,255,255,.65); }
-  .count-box strong{ font-size:20px; font-weight:700; }
-  .btn{ border:none; cursor:pointer; font-weight:600; font-size:13px; border-radius:8px; padding:10px 16px;
-    display:inline-flex; align-items:center; gap:6px; }
-  .btn-segel{ background:var(--segel); color:var(--ink-900); }
-  .btn-segel:hover{ background:#b87c26; }
+  .count-box p{ margin:0; font-size:10.5px; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
+  .count-box strong{ font-size:21px; font-weight:700; font-family:var(--font-mono); color:#fff; }
+  .btn{ border:none; cursor:pointer; font-weight:600; font-size:13px; border-radius:9px; padding:10px 16px;
+    display:inline-flex; align-items:center; gap:6px; transition:background .15s var(--ease),transform .08s, box-shadow .15s; font-family:var(--font-body); }
+  .btn:active{ transform:scale(.97); }
+  .btn-segel{ background:var(--segel); color:#20140a; box-shadow:0 1px 0 rgba(255,255,255,.25) inset; }
+  .btn-segel:hover{ background:#d99a3d; }
+  .btn-segel:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
   .btn-ghost{ background:#fff; color:var(--ink-800); border:1px solid var(--ink-100); }
   .btn-ghost:hover{ background:var(--ink-50); }
   .btn-dark{ background:var(--ink-900); color:#fff; }
   .btn-dark:hover{ background:var(--ink-800); }
-  .btn-danger-text{ background:none; color:var(--red); font-weight:600; font-size:12px; padding:4px 6px; }
+  .btn-dark:disabled{ opacity:.55; cursor:not-allowed; }
+  .btn-header-ghost{ background:transparent;color:#fff;border:1px solid rgba(255,255,255,.22); }
+  .btn-header-ghost:hover{ background:rgba(255,255,255,.08); }
+  .btn-header-muted{ background:transparent;color:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.16); padding:10px 12px; }
+  .btn-header-muted:hover{ color:#fff; background:rgba(255,255,255,.08); }
+  .btn-danger-text{ background:none; color:var(--red); font-weight:600; font-size:12px; padding:4px 6px; border:none; cursor:pointer; border-radius:6px; }
+  .btn-danger-text:hover{ background:var(--red-bg); }
 
-  .row-actions{ display:flex; gap:6px; justify-content:flex-end; }
-  .icon-btn{ width:30px; height:30px; border-radius:8px; border:none; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s,transform .1s; flex-shrink:0; }
+  .icon-btn{ width:31px; height:31px; border-radius:8px; border:none; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s,transform .1s; flex-shrink:0; }
   .icon-btn:active{ transform:scale(.92); }
   .icon-btn svg{ width:15px; height:15px; }
   .icon-btn-edit{ background:var(--ink-50); color:var(--ink-600); }
   .icon-btn-edit:hover{ background:var(--ink-100); color:var(--ink-900); }
   .icon-btn-delete{ background:var(--red-bg); color:var(--red); }
   .icon-btn-delete:hover{ background:#f6cac6; }
-  .pill-btn{ display:inline-flex; align-items:center; gap:6px; border:none; border-radius:8px; font-weight:600; font-size:12.5px; padding:8px 12px; cursor:pointer; transition:background .15s,transform .1s; }
+  .pill-btn{ display:inline-flex; align-items:center; gap:6px; border:none; border-radius:8px; font-weight:600; font-size:12.5px; padding:9px 12px; cursor:pointer; transition:background .15s,transform .1s; font-family:var(--font-body); }
   .pill-btn:active{ transform:scale(.97); }
   .pill-btn svg{ width:14px; height:14px; flex-shrink:0; }
   .pill-btn-edit{ background:var(--ink-50); color:var(--ink-700); }
@@ -61,73 +102,80 @@
   .pill-btn-delete:hover{ background:#f6cac6; }
 
   .dropdown-wrap{ position:relative; display:inline-flex; }
-  .dropdown-wrap .btn{ display:inline-flex; align-items:center; gap:6px; }
-  .dropdown-wrap .btn svg{ width:14px; height:14px; flex-shrink:0; }
-  .dropdown-menu{ position:absolute; top:calc(100% + 6px); left:0; background:#fff; border:1px solid var(--ink-100); border-radius:10px; box-shadow:0 10px 30px rgba(20,38,74,.18); padding:6px; min-width:170px; z-index:40; }
-  .dropdown-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:9px 12px; border-radius:7px; font-size:13px; color:var(--ink-800); cursor:pointer; font-weight:500; }
+  .dropdown-menu{ position:absolute; top:calc(100% + 6px); left:0; background:#fff; border:1px solid var(--ink-100); border-radius:11px; box-shadow:var(--shadow-lg); padding:6px; min-width:175px; z-index:40; animation:pop .13s var(--ease); transform-origin:top left; }
+  .dropdown-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:9px 12px; border-radius:7px; font-size:13px; color:var(--ink-800); cursor:pointer; font-weight:500; font-family:var(--font-body); }
   .dropdown-item:hover{ background:var(--ink-50); }
-  @media (max-width:760px){
-    .dropdown-menu{ left:auto; right:0; }
-  }
-  main{ padding:28px 0 60px; }
+  @media (max-width:760px){ .dropdown-menu{ left:auto; right:0; } }
+
+  main{ padding:26px 0 60px; }
   .toolbar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
   .toolbar input[type=text], .toolbar select{
-    padding:10px 12px; border-radius:8px; border:1px solid var(--ink-100); font-size:13px; background:#fff;
-    font-family:inherit;
+    padding:10px 12px; border-radius:9px; border:1px solid var(--ink-100); font-size:13px; background:#fff;
+    font-family:inherit; transition:border-color .15s, box-shadow .15s;
   }
+  .toolbar input[type=text]:focus, .toolbar select:focus{ outline:none; border-color:var(--ink-600); box-shadow:0 0 0 3px rgba(44,76,124,.12); }
   .toolbar .search{ flex:1; min-width:220px; position:relative; }
   .toolbar .search input{ width:100%; padding-left:34px; }
-  .toolbar .search svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--ink-400); }
+  .toolbar .search svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--ink-400); pointer-events:none; }
   .toolbar select{ min-width:220px; }
   .toolbar-right{ display:flex; gap:8px; margin-left:auto; }
-  .card{ background:#fff; border:1px solid var(--ink-100); border-radius:12px; box-shadow:0 1px 2px rgba(20,38,74,.06),0 8px 24px -12px rgba(20,38,74,.18); overflow:hidden; }
+  .card{ background:#fff; border:1px solid var(--ink-100); border-radius:14px; box-shadow:var(--shadow-sm),var(--shadow-md); overflow:hidden; }
   table{ width:100%; border-collapse:collapse; }
   thead tr{ background:var(--ink-50); }
-  th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-600); font-weight:700; padding:11px 14px; }
-  td{ padding:11px 14px; font-size:13px; border-top:1px solid var(--ink-100); vertical-align:middle; }
-  tbody tr:hover{ background:#faf9f6; }
-  .nomor-badge{ font-weight:700; background:var(--paper); border:1.5px dashed rgba(201,138,46,.55); border-radius:6px; padding:4px 9px; display:inline-block; }
+  th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-600); font-weight:700; padding:12px 14px; }
+  td{ padding:12px 14px; font-size:13px; border-top:1px solid var(--ink-100); vertical-align:middle; }
+  tbody tr{ transition:background .1s; }
+  tbody tr:hover{ background:#faf9f5; }
+  .nomor-badge{ font-weight:700; background:var(--paper); border:1.5px dashed rgba(201,138,46,.55); border-radius:7px; padding:4px 10px; display:inline-block; color:var(--ink-800); letter-spacing:.2px; }
   .badge{ display:inline-flex; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
-  .truncate{ max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .empty{ padding:48px 20px; text-align:center; }
-  .empty p:first-child{ font-weight:700; margin:0 0 4px; }
+  .truncate{ max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .empty{ padding:56px 20px; text-align:center; }
+  .empty svg{ color:var(--ink-300); margin-bottom:10px; }
+  .empty p:first-child{ font-weight:700; margin:0 0 4px; font-family:var(--font-display); font-size:16px; }
   .empty p:last-child{ color:var(--ink-400); font-size:13px; margin:0; }
-  .overlay{ position:fixed; inset:0; background:rgba(20,38,74,.5); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
-  .modal{ background:#fff; border-radius:16px; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(20,38,74,.35); }
-  .modal-head{ padding:18px 22px; border-bottom:1px solid var(--ink-100); display:flex; justify-content:space-between; align-items:center; }
-  .modal-head h2{ margin:0; font-size:15px; font-weight:800; }
-  .modal-close{ border:none; background:none; font-size:22px; line-height:1; color:var(--ink-400); cursor:pointer; }
+  .overlay{ position:fixed; inset:0; background:rgba(14,26,51,.55); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; animation:fadeIn .15s var(--ease); }
+  .modal{ background:#fff; border-radius:18px; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-lg); animation:modalIn .18s var(--ease); }
+  @keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+  @keyframes modalIn{ from{opacity:0; transform:translateY(10px) scale(.98)} to{opacity:1; transform:translateY(0) scale(1)} }
+  @keyframes pop{ from{opacity:0; transform:scale(.94)} to{opacity:1; transform:scale(1)} }
+  .modal-head{ padding:19px 22px; border-bottom:1px solid var(--ink-100); display:flex; justify-content:space-between; align-items:center; }
+  .modal-head h2{ margin:0; font-size:16.5px; font-weight:700; font-family:var(--font-display); }
+  .modal-close{ border:none; background:none; font-size:22px; line-height:1; color:var(--ink-400); cursor:pointer; width:30px;height:30px;border-radius:8px; }
+  .modal-close:hover{ background:var(--ink-50); color:var(--ink-800); }
   .modal-body{ padding:22px; display:flex; flex-direction:column; gap:14px; }
-  .field label{ display:block; font-size:11px; font-weight:700; color:var(--ink-600); margin-bottom:5px; text-transform:uppercase; letter-spacing:.02em; }
-  .field input, .field select{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--ink-100); font-size:13px; font-family:inherit; }
-  .field input:focus, .field select:focus{ outline:none; border-color:var(--ink-600); box-shadow:0 0 0 3px rgba(44,76,124,.12); }
+  .field label{ display:block; font-size:10.5px; font-weight:700; color:var(--ink-600); margin-bottom:5px; text-transform:uppercase; letter-spacing:.04em; }
+  .field input, .field select, .field textarea{ width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--ink-100); font-size:13px; font-family:inherit; transition:border-color .15s, box-shadow .15s; }
+  .field input:focus, .field select:focus, .field textarea:focus{ outline:none; border-color:var(--ink-600); box-shadow:0 0 0 3px rgba(44,76,124,.12); }
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .preview-box{ background:var(--paper); border:1.5px dashed rgba(201,138,46,.55); border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; }
+  .preview-box{ background:var(--paper); border:1.5px dashed rgba(201,138,46,.55); border-radius:9px; padding:11px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
   .preview-box span:first-child{ font-size:11px; color:var(--ink-600); font-weight:600; }
-  .preview-box span:last-child{ font-weight:700; }
+  .preview-box span:last-child{ font-weight:700; font-family:var(--font-mono); }
   .form-actions{ display:flex; gap:10px; margin-top:4px; }
-  .form-actions button{ flex:1; padding:11px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; }
+  .form-actions button{ flex:1; padding:11px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer; }
   .error-text{ color:var(--red); font-size:12px; font-weight:600; margin:0; }
-  .kode-row{ display:flex; justify-content:space-between; align-items:center; background:var(--paper); border-radius:8px; padding:8px 12px; font-size:13px; }
+  .kode-row{ display:flex; justify-content:space-between; align-items:center; background:var(--paper); border-radius:9px; padding:9px 12px; font-size:13px; gap:8px; }
   .kode-row + .kode-row{ margin-top:6px; }
-  .kode-row b{ font-family:inherit; }
   .hint{ color:var(--ink-400); font-size:11px; margin:0; }
-  .toast{ position:fixed; bottom:22px; right:22px; background:var(--ink-900); color:#fff; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600; box-shadow:0 10px 30px rgba(20,38,74,.35); z-index:60; }
+  .toast{ position:fixed; bottom:22px; right:22px; left:22px; background:var(--ink-900); color:#fff; padding:13px 18px; border-radius:11px; font-size:13px; font-weight:600; box-shadow:var(--shadow-lg); z-index:60; display:flex; align-items:center; gap:10px; animation:toastIn .22s var(--ease); max-width:420px; margin-left:auto; }
+  @keyframes toastIn{ from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:translateY(0)} }
+  .toast svg{ color:var(--segel); flex-shrink:0; }
   .settings-row{ display:flex; gap:10px; }
   .badge-blue{ background:var(--blue-bg); color:var(--ink-800); }
   .badge-green{ background:var(--green-bg); color:var(--green); }
   .badge-emerald{ background:#e3f3ea; color:#1f6b46; }
-  .badge-amber{ background:var(--amber-bg); color:#9a6316; }
+  .badge-amber{ background:var(--amber-bg); color:var(--amber); }
   .badge-violet{ background:var(--violet-bg); color:var(--violet); }
   .badge-red{ background:var(--red-bg); color:var(--red); }
-  .badge-slate{ background:#eef1f5; color:#475569; }
-  footer.app-footer{ text-align:center; padding:24px; color:var(--ink-400); font-size:12px; line-height:1.8; }
-  .banner{ background:#fff8ec; border:1px solid #f0dbb0; color:#8a5a12; font-size:12px; padding:10px 14px; border-radius:10px; margin-bottom:16px; line-height:1.5; }
+  .badge-slate{ background:var(--slate-bg); color:var(--slate); }
+  footer.app-footer{ text-align:center; padding:28px 20px; color:var(--ink-400); font-size:12px; line-height:1.9; }
+  .banner{ background:#fff8ec; border:1px solid #f0dbb0; color:#8a5a12; font-size:12px; padding:11px 14px; border-radius:11px; margin-bottom:16px; line-height:1.55; display:flex; gap:9px; }
+  .banner svg{ flex-shrink:0; margin-top:1px; }
   .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+  .spin{ animation:spin .8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
 
-  /* ---- kartu untuk tampilan ponsel (pengganti tabel) ---- */
   .table-mobile{ display:none; }
-  .surat-card{ background:#fff; border:1px solid var(--ink-100); border-radius:12px; padding:14px; margin-bottom:10px; }
+  .surat-card{ background:#fff; border:1px solid var(--ink-100); border-radius:13px; padding:14px; margin-bottom:10px; }
   .surat-card-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
   .surat-card .nomor-badge{ font-size:12.5px; }
   .surat-card-perihal{ font-weight:700; font-size:13.5px; margin:0 0 4px; line-height:1.35; }
@@ -140,47 +188,49 @@
   tbody tr.row-clickable:hover .nomor-badge{ border-color:var(--segel); }
 
   .detail-hero{ text-align:center; padding:2px 0 6px; }
-  .detail-hero .nomor-badge{ font-size:16px; padding:7px 14px; }
+  .detail-hero .nomor-badge{ font-size:16px; padding:8px 16px; }
   .detail-grid{ display:flex; flex-direction:column; gap:10px; }
-  .detail-row{ display:flex; flex-direction:column; gap:3px; padding:10px 12px; background:var(--paper); border-radius:8px; }
-  .detail-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-600); }
+  .detail-row{ display:flex; flex-direction:column; gap:3px; padding:11px 12px; background:var(--paper); border-radius:9px; }
+  .detail-label{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-600); }
   .detail-value{ font-size:14px; color:var(--ink-900); word-break:break-word; line-height:1.4; }
 
-  .pagination{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; flex-wrap:wrap; }
+  .pagination{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 14px; flex-wrap:wrap; }
   .pagination-info{ color:var(--ink-600); font-size:12.5px; }
   .pagination-controls{ display:flex; align-items:center; gap:6px; }
   .page-btn{ border:1px solid var(--ink-100); background:#fff; color:var(--ink-800); font-weight:600; font-size:12.5px;
-    padding:7px 11px; border-radius:7px; cursor:pointer; min-width:34px; }
+    padding:7px 11px; border-radius:8px; cursor:pointer; min-width:34px; transition:background .12s; }
   .page-btn:hover:not(:disabled){ background:var(--ink-50); }
   .page-btn:disabled{ opacity:.4; cursor:not-allowed; }
   .page-btn.active{ background:var(--ink-900); color:#fff; border-color:var(--ink-900); }
   .page-jump{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-600); }
-  .page-jump input{ width:52px; padding:6px 8px; border-radius:7px; border:1px solid var(--ink-100); font-size:12.5px; text-align:center; }
-  .page-size-select{ padding:7px 9px; border-radius:7px; border:1px solid var(--ink-100); font-size:12.5px; background:#fff; }
+  .page-size-select{ padding:7px 9px; border-radius:8px; border:1px solid var(--ink-100); font-size:12.5px; background:#fff; }
 
   @media (max-width:760px){
     .pagination{ flex-direction:column; align-items:stretch; text-align:center; }
     .pagination-controls{ justify-content:center; flex-wrap:wrap; }
   }
 
-  .login-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .login-card{ background:#fff; border-radius:16px; width:100%; max-width:380px; padding:32px 28px; box-shadow:0 20px 60px rgba(20,38,74,.18); border:1px solid var(--ink-100); }
-  .login-brand{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:24px; }
-  .login-brand .brand-mark{ background:rgba(201,138,46,.92); border:1.5px dashed rgba(201,138,46,.55); color:var(--ink-900); margin-bottom:12px; }
-  .login-brand h1{ font-size:18px; margin:0; font-weight:800; color:var(--ink-900); }
-  .login-brand p{ margin:4px 0 0; font-size:12.5px; color:var(--ink-400); }
+  .login-wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:var(--ink-900);
+    background-image:radial-gradient(circle at 15% 10%, rgba(201,138,46,.14), transparent 45%), radial-gradient(circle at 85% 90%, rgba(44,76,124,.35), transparent 50%); }
+  .login-card{ background:#fff; border-radius:18px; width:100%; max-width:380px; padding:34px 30px; box-shadow:var(--shadow-lg); animation:modalIn .25s var(--ease); }
+  .login-brand{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:26px; }
+  .login-brand .brand-mark{ background:var(--segel); border:1.5px dashed rgba(201,138,46,.55); color:var(--ink-900); margin-bottom:13px; width:52px; height:52px; font-size:20px; }
+  .login-brand h1{ font-size:20px; margin:0; font-weight:700; color:var(--ink-900); font-family:var(--font-display); }
+  .login-brand p{ margin:5px 0 0; font-size:12.5px; color:var(--ink-400); }
   .login-card .field{ margin-bottom:16px; }
-  .login-card button[type=submit]{ width:100%; padding:12px; border-radius:8px; font-weight:700; font-size:13.5px; cursor:pointer; }
+  .login-card button[type=submit]{ width:100%; padding:12px; border-radius:9px; font-weight:700; font-size:13.5px; cursor:pointer; }
+  .login-hint{ text-align:center; margin-top:16px; font-size:11.5px; color:var(--ink-300); }
 
-  .danger-zone{ border:1px solid rgba(179,65,58,.35); background:#fef4f3; border-radius:10px; padding:14px; }
-  .code-snippet{ width:100%; font-family:var(--font-mono); font-size:11px; line-height:1.5; padding:10px; border-radius:8px; border:1px solid var(--ink-100); background:var(--paper); resize:vertical; color:var(--ink-800); }
+  .danger-zone{ border:1px solid rgba(179,65,58,.3); background:#fef4f3; border-radius:11px; padding:14px; }
+  .code-snippet{ width:100%; font-family:var(--font-mono); font-size:11px; line-height:1.5; padding:10px; border-radius:9px; border:1px solid var(--ink-100); background:var(--paper); resize:vertical; color:var(--ink-800); }
 
   @media (max-width:760px){
     .wrap{ padding:0 16px; }
     body{ font-size:13.5px; }
-    .header-inner{ padding:16px 0; gap:12px; }
+    .header-inner{ padding:15px 0; gap:12px; }
     .brand h1{ font-size:16px; }
-    .header-actions{ width:100%; justify-content:space-between; gap:10px; }
+    .brand-mark{ width:38px;height:38px;font-size:15px; }
+    .header-actions{ width:100%; justify-content:space-between; gap:8px; }
     .count-box{ display:none; }
     #btnKelola{ padding:9px 12px; font-size:12.5px; }
     #btnTambah{ flex:1; justify-content:center; }
@@ -191,14 +241,15 @@
     .toolbar-right .dropdown-wrap{ flex:1 1 calc(50% - 4px); }
     .toolbar-right .dropdown-wrap .btn{ width:100%; }
     .grid2{ grid-template-columns:1fr; }
-    .modal{ max-width:100%; border-radius:14px 14px 0 0; align-self:flex-end; }
+    .modal{ max-width:100%; border-radius:16px 16px 0 0; align-self:flex-end; }
     .overlay{ align-items:flex-end; padding:0; }
     .modal-body{ padding:18px; }
     .table-desktop{ display:none; }
     .table-mobile{ display:block; }
+    .toast{ left:14px; right:14px; bottom:14px; max-width:none; }
   }
   @media print{
-    header, .toolbar, .btn, .empty p:last-child{ display:none !important; }
+    header, .toolbar, .banner, .btn, .empty p:last-child{ display:none !important; }
     body{ background:#fff; }
     .card{ box-shadow:none; border:none; }
     .table-mobile{ display:none !important; }
@@ -207,1484 +258,1317 @@
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="root"></div>
 
-<script>
-(function(){
-  "use strict";
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-  var STORE_KEY = "simoris_data_v1";
-  var AUTH_KEY = "simoris_authed_v1";
-  var PW_HASH_KEY = "simoris_pw_hash_v1";
-  // Hash dari kata sandi bawaan "simoris2026" — GANTI setelah login pertama
-  // lewat "Kelola Kode" → "Ubah kata sandi akses".
-  var DEFAULT_PW_HASH = "ca861d55";
+/* ============================== KONSTANTA ============================== */
 
-  // Hash sederhana (djb2), BUKAN kriptografi kuat — ini hanya gerbang akses
-  // dasar agar orang tidak sembarangan membuka aplikasi, bukan proteksi
-  // untuk data sangat rahasia (aplikasi ini 100% berjalan di peramban,
-  // sehingga siapa pun yang punya akses fisik + alat developer browser
-  // pada akhirnya tetap bisa melihat data yang tersimpan).
-  function simpleHash(str){
-    var hash = 5381;
-    for(var i=0;i<str.length;i++){
-      hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
-    }
-    return hash.toString(16);
-  }
-  function getStoredPwHash(){
-    try{ return localStorage.getItem(PW_HASH_KEY) || DEFAULT_PW_HASH; }catch(e){ return DEFAULT_PW_HASH; }
-  }
-  function setStoredPwHash(hash){
-    try{ localStorage.setItem(PW_HASH_KEY, hash); }catch(e){ /* storage unavailable */ }
-  }
-  function isAuthed(){
-    try{ return localStorage.getItem(AUTH_KEY) === "1"; }catch(e){ return false; }
-  }
-  function setAuthed(v){
-    try{ localStorage.setItem(AUTH_KEY, v ? "1" : "0"); }catch(e){ /* storage unavailable */ }
-  }
+const STORE_KEY = "simoris_data_v1";
+const AUTH_KEY = "simoris_authed_v1";
+const PW_HASH_KEY = "simoris_pw_hash_v1";
+// Hash dari kata sandi bawaan "simoris2026" — GANTI setelah login pertama
+// lewat "Kelola Kode" -> "Ubah kata sandi akses".
+const DEFAULT_PW_HASH = "ca861d55";
 
-  var WARNA_CLASS = {
-    blue:"badge-blue", green:"badge-green", emerald:"badge-emerald",
-    amber:"badge-amber", violet:"badge-violet", red:"badge-red", slate:"badge-slate"
+const WARNA_CLASS = { blue:"badge-blue", green:"badge-green", emerald:"badge-emerald", amber:"badge-amber", violet:"badge-violet", red:"badge-red", slate:"badge-slate" };
+const WARNA_CYCLE = ["blue","green","emerald","amber","violet","red","slate"];
+const DEFAULT_KODE = [{ id:1, kode:"UM", nama:"Umum", warna:"emerald", aktif:true }];
+const BULAN_ID = { "januari":0,"februari":1,"maret":2,"april":3,"mei":4,"juni":5,"juli":6,"agustus":7,"september":8,"oktober":9,"november":10,"desember":11 };
+const BULAN_NAMA = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+
+const APPS_SCRIPT_SNIPPET =
+'function doGet(e) {\n' +
+'  var lock = LockService.getScriptLock();\n' +
+'  lock.waitLock(10000); // tunggu giliran kalau ada device lain menulis bersamaan\n' +
+'  try {\n' +
+'    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
+'    var p = e.parameter;\n' +
+'    var lastRow = sheet.getLastRow();\n' +
+'    var lastNo = lastRow >= 2 ? Number(sheet.getRange(lastRow, 1).getValue()) || 0 : 0;\n' +
+'    var nextNo = lastNo + 1;\n' +
+'    var digit = Number(p.digit) || 3;\n' +
+'    var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" +\n' +
+'      ("0000" + nextNo).slice(-digit);\n' +
+'    sheet.appendRow([nextNo, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor]);\n' +
+'    return ContentService.createTextOutput(JSON.stringify({ ok:true, urut:nextNo, nomor:nomor }))\n' +
+'      .setMimeType(ContentService.MimeType.JSON);\n' +
+'  } finally {\n' +
+'    lock.releaseLock();\n' +
+'  }\n' +
+'}';
+
+/* ============================== HELPER DASAR ============================== */
+
+function simpleHash(str){
+  let hash = 5381;
+  for(let i=0;i<str.length;i++){ hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0; }
+  return hash.toString(16);
+}
+function getStoredPwHash(){ try{ return localStorage.getItem(PW_HASH_KEY) || DEFAULT_PW_HASH; }catch(e){ return DEFAULT_PW_HASH; } }
+function setStoredPwHash(h){ try{ localStorage.setItem(PW_HASH_KEY, h); }catch(e){} }
+function isAuthedStorage(){ try{ return localStorage.getItem(AUTH_KEY) === "1"; }catch(e){ return false; } }
+function setAuthedStorage(v){ try{ localStorage.setItem(AUTH_KEY, v?"1":"0"); }catch(e){} }
+
+function isoToday(offset){ const d = new Date(); d.setDate(d.getDate() + (offset||0)); return d.toISOString().slice(0,10); }
+function uid(){ return Date.now() + Math.floor(Math.random()*1000); }
+function pad2(n){ n = String(n); return n.length<2 ? "0"+n : n; }
+
+function defaultState(){
+  return {
+    settings:{ instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" },
+    counter:2,
+    kodeList: DEFAULT_KODE,
+    surats:[
+      { id:1, urut:1, kodeId:1, tujuan:"Rizani", perihal:"Surat Undangan Rapat Koordinasi", tanggal:isoToday(-1), dibuatOleh:"", sumber:"manual", nomorOverride:null },
+      { id:2, urut:2, kodeId:1, tujuan:"", perihal:"Pengadaan ATK Triwulan I", tanggal:isoToday(0), dibuatOleh:"", sumber:"manual", nomorOverride:null }
+    ],
+    seeded:true
   };
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw){ const s = defaultState(); saveState(s); return s; }
+    const parsed = JSON.parse(raw);
+    if(!parsed.settings) parsed.settings = { instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" };
+    if(typeof parsed.settings.googleSheetUrl === "undefined") parsed.settings.googleSheetUrl = "";
+    if(typeof parsed.settings.appsScriptUrl === "undefined") parsed.settings.appsScriptUrl = "";
+    if(!Array.isArray(parsed.kodeList)) parsed.kodeList = DEFAULT_KODE;
+    if(!Array.isArray(parsed.surats)) parsed.surats = [];
+    if(typeof parsed.counter !== "number") parsed.counter = 0;
+    return parsed;
+  }catch(e){ return defaultState(); }
+}
+function saveState(s){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }catch(e){} }
+function cloneState(s){ return JSON.parse(JSON.stringify(s)); }
 
-  // Klasifikasi sengaja dibuat MINIMAL secara bawaan — hanya 1 kode contoh.
-  // Kode klasifikasi ditambahkan secara manual lewat "Kelola Kode" sesuai
-  // kebutuhan kantor masing-masing. Yang otomatis hanyalah deret nomor
-  // urut di belakang (mis. ...-001, ...-002, dst).
-  // Kode Google Apps Script siap-tempel supaya surat yang diterbitkan dari
-  // SIMORIS bisa ikut tercatat otomatis di Google Sheet (fitur tulis-balik,
-  // opsional). Ditampilkan di panel "Kelola Kode" untuk disalin pengguna.
-  var ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
-  var ICON_DELETE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
-  var ICON_DOWNLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg>';
-  var ICON_CHEVRON_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+function kodeOf(S, id){ return S.kodeList.find(function(k){ return k.id===id; }) || null; }
+function aktifKode(S){ return S.kodeList.filter(function(k){ return k.aktif; }); }
+function nomorSurat(S, urut, kodeId){
+  const k = kodeOf(S, kodeId);
+  const kodeStr = k ? k.kode : "?";
+  const padded = String(urut).padStart(S.settings.digit, "0");
+  return S.settings.instansiKode + "-" + kodeStr + "-" + padded;
+}
+function displayNomor(S, s){ return s.nomorOverride || nomorSurat(S, s.urut, s.kodeId); }
+function fmtTanggal(iso){
+  if(!iso) return "—";
+  const d = new Date(iso+"T00:00:00");
+  if(isNaN(d)) return "—";
+  return d.getDate()+" "+BULAN_NAMA[d.getMonth()]+" "+d.getFullYear();
+}
+function ensureKodeInDraft(draft, kodeStr){
+  let found = draft.kodeList.find(function(k){ return k.kode.toLowerCase()===kodeStr.toLowerCase(); });
+  if(found) return found;
+  const k = { id:uid(), kode:kodeStr, nama:"Impor otomatis", warna:WARNA_CYCLE[draft.kodeList.length % WARNA_CYCLE.length], aktif:true };
+  draft.kodeList.push(k);
+  return k;
+}
 
-  var APPS_SCRIPT_SNIPPET =
-    'function doGet(e) {\n' +
-    '  var lock = LockService.getScriptLock();\n' +
-    '  lock.waitLock(10000); // tunggu giliran kalau ada device lain menulis bersamaan\n' +
-    '  try {\n' +
-    '    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
-    '    var p = e.parameter;\n' +
-    '    var lastRow = sheet.getLastRow();\n' +
-    '    var lastNo = lastRow >= 2 ? Number(sheet.getRange(lastRow, 1).getValue()) || 0 : 0;\n' +
-    '    var nextNo = lastNo + 1;\n' +
-    '    var digit = Number(p.digit) || 3;\n' +
-    '    var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" +\n' +
-    '      ("0000" + nextNo).slice(-digit);\n' +
-    '    sheet.appendRow([nextNo, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor]);\n' +
-    '    return ContentService.createTextOutput(JSON.stringify({ ok:true, urut:nextNo, nomor:nomor }))\n' +
-    '      .setMimeType(ContentService.MimeType.JSON);\n' +
-    '  } finally {\n' +
-    '    lock.releaseLock();\n' +
-    '  }\n' +
-    '}';
+/* ============================== IMPOR / EKSPOR ============================== */
 
-  var DEFAULT_KODE = [
-    { id:1, kode:"UM", nama:"Umum", warna:"emerald", aktif:true }
+function parseTanggalIndo(str){
+  if(!str) return null;
+  str = String(str).trim();
+  const iso = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(iso) return iso[1]+"-"+pad2(iso[2])+"-"+pad2(iso[3]);
+  const slash = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(slash) return slash[3]+"-"+pad2(slash[1])+"-"+pad2(slash[2]);
+  const indo = str.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if(indo){
+    const bulanIdx = BULAN_ID[indo[2].toLowerCase()];
+    if(bulanIdx !== undefined) return indo[3]+"-"+pad2(bulanIdx+1)+"-"+pad2(indo[1]);
+  }
+  return null;
+}
+function parseCsv(text){
+  const rows = []; let i=0, field="", row=[], inQuotes=false;
+  text = text.replace(/^\uFEFF/, "");
+  while(i < text.length){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){ if(text[i+1] === '"'){ field += '"'; i+=2; continue; } inQuotes=false; i++; continue; }
+      field += c; i++; continue;
+    } else {
+      if(c === '"'){ inQuotes=true; i++; continue; }
+      if(c === ','){ row.push(field); field=""; i++; continue; }
+      if(c === '\r'){ i++; continue; }
+      if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=""; i++; continue; }
+      field += c; i++; continue;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(function(r){ return r.some(function(c){ return String(c).trim() !== ""; }); });
+}
+function colIndex(header, keywords){
+  for(let i=0;i<header.length;i++){
+    const h = String(header[i]||"").toLowerCase();
+    for(let j=0;j<keywords.length;j++){ if(h.indexOf(keywords[j]) > -1) return i; }
+  }
+  return -1;
+}
+function detectColumns(rows){
+  let headerIdx = 0;
+  for(let hi=0; hi<Math.min(rows.length,10); hi++){
+    if(colIndex(rows[hi], ["perihal"]) > -1){ headerIdx = hi; break; }
+  }
+  const header = rows[headerIdx];
+  return {
+    headerIdx: headerIdx,
+    idxTujuan: colIndex(header, ["tujuan"]),
+    idxTanggal: colIndex(header, ["tanggal"]),
+    idxPerihal: colIndex(header, ["perihal"]),
+    idxNomor: colIndex(header, ["nomor surat","nomor","no surat","no."]),
+    idxKode: colIndex(header, ["kode klasifikasi","klasifikasi","kode"])
+  };
+}
+function parseRowsToSurats(rows, cols){
+  const out = [];
+  for(let r=cols.headerIdx+1; r<rows.length; r++){
+    const c = rows[r];
+    const perihal = cols.idxPerihal>-1 ? String(c[cols.idxPerihal]||"").trim() : "";
+    if(!perihal) continue;
+    out.push({
+      tujuan: cols.idxTujuan>-1 ? String(c[cols.idxTujuan]||"").trim() : "",
+      tanggalRaw: cols.idxTanggal>-1 ? String(c[cols.idxTanggal]||"").trim() : "",
+      perihal: perihal,
+      nomorRaw: cols.idxNomor>-1 ? String(c[cols.idxNomor]||"").trim() : "",
+      kodeExplicit: cols.idxKode>-1 ? String(c[cols.idxKode]||"").trim() : ""
+    });
+  }
+  return out;
+}
+function parseNomorRaw(nomorRaw){
+  if(!nomorRaw) return null;
+  const parts = nomorRaw.split("-");
+  if(parts.length >= 3){
+    const urutStr = parts[parts.length-1];
+    const kodeStr = parts.slice(1, parts.length-1).join("-");
+    if(/^\d+$/.test(urutStr) && kodeStr) return { urut: parseInt(urutStr,10), kodeStr: kodeStr };
+  }
+  return null;
+}
+function excelCellToStr(v){
+  if(v instanceof Date && !isNaN(v)) return v.getFullYear()+"-"+pad2(v.getMonth()+1)+"-"+pad2(v.getDate());
+  if(v === null || v === undefined) return "";
+  return String(v).trim();
+}
+function applyImportToDraft(draft, parsedRows){
+  const existingNomor = {};
+  draft.surats.forEach(function(s){ existingNomor[displayNomor(draft,s)] = true; });
+  parsedRows.forEach(function(pr){
+    const parsed = parseNomorRaw(pr.nomorRaw);
+    if(parsed && parsed.urut > draft.counter) draft.counter = parsed.urut;
+  });
+  let kodeUmum=null, ditambahkan=0, dilewati=0, maxUrutImpor=0;
+  parsedRows.forEach(function(pr){
+    const tanggal = parseTanggalIndo(pr.tanggalRaw) || isoToday(0);
+    let kodeObj=null, urut=null;
+    const parsed = parseNomorRaw(pr.nomorRaw);
+    if(parsed){ urut = parsed.urut; kodeObj = ensureKodeInDraft(draft, parsed.kodeStr); }
+    if(!kodeObj && pr.kodeExplicit) kodeObj = ensureKodeInDraft(draft, pr.kodeExplicit);
+    if(!kodeObj){ if(!kodeUmum) kodeUmum = ensureKodeInDraft(draft, "IMPOR"); kodeObj = kodeUmum; }
+    if(urut === null){ draft.counter += 1; urut = draft.counter; }
+    const nomorFinal = pr.nomorRaw || nomorSurat(draft, urut, kodeObj.id);
+    if(existingNomor[nomorFinal]){ dilewati++; return; }
+    existingNomor[nomorFinal] = true;
+    draft.surats.push({ id:uid(), urut:urut, kodeId:kodeObj.id, tujuan:pr.tujuan, perihal:pr.perihal, tanggal:tanggal, dibuatOleh:"", sumber:"manual", nomorOverride: pr.nomorRaw||null });
+    ditambahkan++;
+    if(urut > maxUrutImpor) maxUrutImpor = urut;
+  });
+  if(maxUrutImpor > draft.counter) draft.counter = maxUrutImpor;
+  draft.surats.sort(function(a,b){ return b.urut - a.urut; });
+  return { ditambahkan: ditambahkan, dilewati: dilewati };
+}
+function extractSheetId(url){ const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/); return m ? m[1] : null; }
+function extractGid(url){ const m = url.match(/[#&?]gid=([0-9]+)/); return m ? m[1] : "0"; }
+function buildCandidateCsvUrls(rawUrl){
+  const url = rawUrl.trim();
+  if(/output=csv|format=csv|tqx=out:csv/.test(url)) return [url];
+  const id = extractSheetId(url);
+  if(!id) return [];
+  const gid = extractGid(url);
+  return [
+    "https://docs.google.com/spreadsheets/d/"+id+"/export?format=csv&gid="+gid,
+    "https://docs.google.com/spreadsheets/d/"+id+"/gviz/tq?tqx=out:csv&gid="+gid
   ];
-
-  function defaultState(){
-    return {
-      settings: { instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" },
-      counter: 2,
-      kodeList: DEFAULT_KODE,
-      surats: [
-        { id:1, urut:1, kodeId:1, tujuan:"Rizani", perihal:"Surat Undangan Rapat Koordinasi", tanggal:isoToday(-1), dibuatOleh:"" },
-        { id:2, urut:2, kodeId:1, tujuan:"", perihal:"Pengadaan ATK Triwulan I", tanggal:isoToday(0), dibuatOleh:"" }
-      ],
-      seeded:true
-    };
-  }
-
-  function isoToday(offsetDays){
-    var d = new Date();
-    d.setDate(d.getDate() + offsetDays);
-    return d.toISOString().slice(0,10);
-  }
-
-  function load(){
+}
+async function tryFetchCsv(urls, timeoutMs){
+  let lastErr = null;
+  for(let i=0;i<urls.length;i++){
     try{
-      var raw = localStorage.getItem(STORE_KEY);
-      if(!raw) { var s = defaultState(); save(s); return s; }
-      return JSON.parse(raw);
-    }catch(e){ return defaultState(); }
-  }
-  function save(s){
-    try{ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }catch(e){ /* storage unavailable */ }
-  }
-
-  var S = load();
-  if(!S.settings) S.settings = { instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" };
-  if(typeof S.settings.googleSheetUrl === "undefined") S.settings.googleSheetUrl = "";
-  if(typeof S.settings.appsScriptUrl === "undefined") S.settings.appsScriptUrl = "";
-  resortSurats();
-  var ui = { search:"", kodeFilter:"", modal:null, editingId:null, toast:"", formKodeId:null, detailId:null, page:1, pageSize:50, confirmMessage:"", confirmOnYes:null, noticeTitle:"", noticeMessage:"", downloadMenuOpen:false, appsScriptExpanded:false };
-
-  function kodeOf(id){
-    for(var i=0;i<S.kodeList.length;i++){ if(S.kodeList[i].id===id) return S.kodeList[i]; }
-    return null;
-  }
-  function aktifKode(){ return S.kodeList.filter(function(k){ return k.aktif; }); }
-  function nomorSurat(urut, kodeId){
-    var k = kodeOf(kodeId);
-    var kodeStr = k ? k.kode : "?";
-    var padded = String(urut).padStart(S.settings.digit, "0");
-    return S.settings.instansiKode + "-" + kodeStr + "-" + padded;
-  }
-  // Nomor yang DITAMPILKAN: kalau berasal dari impor/sinkron Google Sheet
-  // dan sudah ada teks nomor asli di sumbernya (nomorOverride), pakai teks
-  // itu APA ADANYA — jangan direkonstruksi — supaya selalu identik dengan
-  // yang tertulis di sumber datanya. Hanya surat yang diterbitkan langsung
-  // dari SIMORIS yang nomornya dihitung otomatis dari kode+urut.
-  function displayNomor(s){
-    return s.nomorOverride || nomorSurat(s.urut, s.kodeId);
-  }
-  function fmtTanggal(iso){
-    if(!iso) return "—";
-    var d = new Date(iso+"T00:00:00");
-    var bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-    return d.getDate()+" "+bulan[d.getMonth()]+" "+d.getFullYear();
-  }
-  function uid(){ return Date.now() + Math.floor(Math.random()*1000); }
-  function esc(str){
-    return String(str==null?"":str).replace(/[&<>"']/g, function(c){
-      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
-    });
-  }
-
-  function resortSurats(){
-    S.surats.sort(function(a,b){ return b.urut - a.urut; });
-  }
-
-  function filteredSurats(){
-    // S.surats selalu dijaga terurut menurun (lihat resortSurats) sehingga
-    // pencarian/filter tidak perlu mengurutkan ulang setiap kali diketik —
-    // penting untuk performa saat data mencapai ribuan baris.
-    if(!ui.search && !ui.kodeFilter) return S.surats;
-    var searchLower = ui.search ? ui.search.toLowerCase() : "";
-    return S.surats.filter(function(s){
-      var matchSearch = true;
-      if(searchLower){
-        var hay = (s.perihal+" "+s.tujuan+" "+displayNomor(s)).toLowerCase();
-        matchSearch = hay.indexOf(searchLower) > -1;
+      const hasAbort = typeof AbortController !== "undefined";
+      const controller = hasAbort ? new AbortController() : null;
+      const timer = controller ? setTimeout(function(){ controller.abort(); }, timeoutMs) : null;
+      const res = await fetch(urls[i], { cache:"no-store", signal: controller ? controller.signal : undefined });
+      if(timer) clearTimeout(timer);
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      const text = await res.text();
+      if(/^\s*<(!doctype|html)/i.test(text) || /accounts\.google\.com\/ServiceLogin/i.test(text)){
+        throw new Error("Sheet mengembalikan halaman login/HTML, bukan data — sheet belum bisa diakses publik.");
       }
-      var matchKode = !ui.kodeFilter || String(s.kodeId) === ui.kodeFilter;
-      return matchSearch && matchKode;
+      if(!text || !text.trim()) throw new Error("Sheet mengembalikan data kosong.");
+      return text;
+    }catch(err){ lastErr = err; }
+  }
+  throw lastErr || new Error("Semua percobaan pengambilan data gagal.");
+}
+async function requestNomorFromSheet(S, kodeStr, tujuan, tanggal, perihal){
+  const url = (S.settings.appsScriptUrl||"").trim();
+  if(!url) return { ok:false };
+  const qs = "kode="+encodeURIComponent(kodeStr)+"&instansi="+encodeURIComponent(S.settings.instansiKode)+
+    "&digit="+encodeURIComponent(S.settings.digit)+"&tujuan="+encodeURIComponent(tujuan||"")+
+    "&tanggal="+encodeURIComponent(fmtTanggal(tanggal))+"&perihal="+encodeURIComponent(perihal||"");
+  try{
+    const hasAbort = typeof AbortController !== "undefined";
+    const controller = hasAbort ? new AbortController() : null;
+    const timer = controller ? setTimeout(function(){ controller.abort(); }, 12000) : null;
+    const res = await fetch(url + (url.indexOf("?")>-1 ? "&" : "?") + qs, { method:"GET", signal: controller ? controller.signal : undefined });
+    if(timer) clearTimeout(timer);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const data = await res.json();
+    if(!data || !data.ok) throw new Error("respons tidak valid");
+    return { ok:true, urut:data.urut, nomor:data.nomor };
+  }catch(e){ return { ok:false }; }
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function exportCsvFile(S, rows){
+  const header = ["No","Nomor Surat","Tanggal","Tujuan","Perihal","Kode Klasifikasi"];
+  const lines = [header.join(",")];
+  rows.forEach(function(s){
+    const k = kodeOf(S, s.kodeId);
+    const cells = [s.urut, displayNomor(S,s), fmtTanggal(s.tanggal), s.tujuan||"", s.perihal, k?k.kode:""].map(function(c){
+      const v = String(c).replace(/"/g,'""');
+      return /[",\n]/.test(v) ? '"'+v+'"' : v;
     });
+    lines.push(cells.join(","));
+  });
+  downloadBlob(new Blob(["\uFEFF"+lines.join("\r\n")], { type:"text/csv;charset=utf-8;" }), "simoris-rekap-"+isoToday(0)+".csv");
+}
+function exportExcelFile(S, rows){
+  if(typeof XLSX === "undefined") return false;
+  const sorted = rows.slice().sort(function(a,b){ return a.urut-b.urut; });
+  const data = [["NO","TUJUAN SURAT","TANGGAL SURAT","PERIHAL","NOMOR SURAT KELUAR / SURAT PERINTAH"]];
+  sorted.forEach(function(s, idx){ data.push([idx+1, s.tujuan||"", fmtTanggal(s.tanggal), s.perihal, displayNomor(S,s)]); });
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:5},{wch:22},{wch:18},{wch:42},{wch:30}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "SIMORIS");
+  XLSX.writeFile(wb, "simoris-rekap-"+isoToday(0)+".xlsx");
+  return true;
+}
+function exportPdfFile(S, rows){
+  if(typeof window.jspdf === "undefined") return false;
+  const sorted = rows.slice().sort(function(a,b){ return a.urut-b.urut; });
+  const body = sorted.map(function(s, idx){ return [idx+1, s.tujuan||"-", fmtTanggal(s.tanggal), s.perihal, displayNomor(S,s)]; });
+  const doc = new window.jspdf.jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
+  doc.setFontSize(13); doc.text("SIMORIS - Rekap Surat", 40, 34);
+  doc.setFontSize(9); doc.setTextColor(120);
+  doc.text("Diunduh "+fmtTanggal(isoToday(0))+" - "+sorted.length+" surat", 40, 48);
+  doc.autoTable({
+    startY:60, head:[["No","Tujuan Surat","Tanggal Surat","Perihal","Nomor Surat"]], body:body,
+    styles:{ fontSize:9, cellPadding:6 }, headStyles:{ fillColor:[18,33,63], textColor:255, fontStyle:"bold" },
+    alternateRowStyles:{ fillColor:[248,246,241] }, columnStyles:{ 0:{ cellWidth:30 } }
+  });
+  doc.save("simoris-rekap-"+isoToday(0)+".pdf");
+  return true;
+}
+function exportJsonBackup(S){
+  downloadBlob(new Blob([JSON.stringify(S,null,2)], { type:"application/json" }), "simoris-cadangan-"+isoToday(0)+".json");
+}
+
+/* ============================== IKON ============================== */
+
+function Icon(props){
+  const { d, children, ...rest } = props;
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={props.size||15} height={props.size||15} {...rest}>
+      {children}
+    </svg>
+  );
+}
+const IconEdit = (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></Icon>;
+const IconDelete = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></Icon>;
+const IconDownload = (p) => <Icon {...p}><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></Icon>;
+const IconChevronDown = (p) => <Icon {...p}><polyline points="6 9 12 15 18 9"/></Icon>;
+const IconSearch = (p) => <Icon {...p}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></Icon>;
+const IconPlus = (p) => <Icon {...p}><path d="M12 5v14"/><path d="M5 12h14"/></Icon>;
+const IconLogout = (p) => <Icon {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Icon>;
+const IconRefresh = (p) => <Icon {...p}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></Icon>;
+const IconUpload = (p) => <Icon {...p}><path d="M12 21V9"/><polyline points="7 14 12 9 17 14"/><path d="M5 3h14"/></Icon>;
+const IconInbox = (p) => <Icon {...p}><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></Icon>;
+const IconInfo = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></Icon>;
+const IconCheck = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>;
+const IconSettings = (p) => <Icon {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></Icon>;
+
+/* ============================== KOMPONEN KECIL ============================== */
+
+function Toast({ message }){
+  if(!message) return null;
+  return <div className="toast"><IconCheck size={16}/><span>{message}</span></div>;
+}
+
+function Banner(){
+  return (
+    <div className="banner">
+      <IconInfo size={15}/>
+      <span>Data tersimpan otomatis di peramban perangkat ini. Untuk memakai data yang sama di perangkat/komputer lain: unduh <b>Cadangkan (JSON)</b> di sini lalu <b>Impor Excel/CSV</b> file tersebut di perangkat lain. Anda juga bisa langsung mengimpor rekap lama dari file Excel (.xlsx) sesuai format spreadsheet sebelumnya (kolom Tujuan Surat, Tanggal Surat, Perihal, Nomor Surat).</span>
+    </div>
+  );
+}
+
+function Pagination({ page, totalPages, total, pageSize, start, onPrev, onNext, onPage, onPageSize }){
+  const from = total ? start+1 : 0;
+  const to = Math.min(start+pageSize, total);
+  let lo = Math.max(1, page-2), hi = Math.min(totalPages, page+2);
+  if(page<=3) hi = Math.min(totalPages, 5);
+  if(page>=totalPages-2) lo = Math.max(1, totalPages-4);
+  const nums = [];
+  for(let i=lo;i<=hi;i++) nums.push(i);
+  return (
+    <div className="pagination">
+      <div className="pagination-info">Menampilkan <b>{from}–{to}</b> dari <b>{total}</b> surat</div>
+      <div className="pagination-controls">
+        <button className="page-btn" disabled={page<=1} onClick={onPrev}>‹ Sebelumnya</button>
+        {lo>1 && <button className="page-btn" onClick={()=>onPage(1)}>1</button>}
+        {lo>2 && <span style={{padding:"0 2px",color:"var(--ink-400)"}}>…</span>}
+        {nums.map(n => <button key={n} className={"page-btn"+(n===page?" active":"")} onClick={()=>onPage(n)}>{n}</button>)}
+        {hi<totalPages-1 && <span style={{padding:"0 2px",color:"var(--ink-400)"}}>…</span>}
+        {hi<totalPages && <button className="page-btn" onClick={()=>onPage(totalPages)}>{totalPages}</button>}
+        <button className="page-btn" disabled={page>=totalPages} onClick={onNext}>Berikutnya ›</button>
+      </div>
+      <div className="pagination-controls">
+        <label className="page-jump">Per halaman
+          <select className="page-size-select" value={pageSize} onChange={function(e){ onPageSize(Number(e.target.value)); }} style={{marginLeft:6}}>
+            {[25,50,100,200,500].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== LOGIN ============================== */
+
+function LoginScreen({ onSuccess }){
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const inputRef = useRef(null);
+  useEffect(function(){ if(inputRef.current) inputRef.current.focus(); }, []);
+
+  function submit(e){
+    e.preventDefault();
+    if(simpleHash(pw) === getStoredPwHash()){
+      setAuthedStorage(true);
+      onSuccess();
+    } else {
+      setErr("Kata sandi salah. Coba lagi.");
+      setPw("");
+      if(inputRef.current) inputRef.current.focus();
+    }
   }
 
-  function currentPage(){
-    var all = filteredSurats();
-    var totalPages = Math.max(1, Math.ceil(all.length / ui.pageSize));
-    if(ui.page > totalPages) ui.page = totalPages;
-    if(ui.page < 1) ui.page = 1;
-    var start = (ui.page-1) * ui.pageSize;
-    return {
-      rows: all.slice(start, start + ui.pageSize),
-      total: all.length,
-      totalPages: totalPages,
-      start: start
-    };
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-brand">
+          <div className="brand-mark">№</div>
+          <h1>SIMORIS</h1>
+          <p>Masuk untuk mengakses sistem penomoran surat</p>
+        </div>
+        <form onSubmit={submit}>
+          <div className="field">
+            <label>Kata Sandi</label>
+            <input ref={inputRef} type="password" value={pw} onChange={function(e){ setPw(e.target.value); }} placeholder="Masukkan kata sandi" autoFocus />
+          </div>
+          {err && <p className="error-text" style={{marginBottom:14}}>{err}</p>}
+          <button type="submit" className="btn-dark">Masuk</button>
+        </form>
+        <p className="login-hint">Kata sandi bawaan: <span className="mono">simoris2026</span> (ubah setelah masuk lewat Kelola Kode)</p>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== HEADER & TOOLBAR ============================== */
+
+function Header({ count, onKelola, onTambah, onLogout }){
+  return (
+    <header className="app-header">
+      <div className="wrap header-inner">
+        <div className="brand">
+          <div className="brand-mark">№</div>
+          <div><h1>SIMORIS</h1><p>Sistem Penomoran Surat Otomatis</p></div>
+        </div>
+        <div className="header-actions">
+          <div className="count-box"><p>Surat tercatat</p><strong>{String(count).padStart(3,"0")}</strong></div>
+          <button className="btn btn-header-ghost" onClick={onKelola}><IconSettings size={14}/>Kelola Kode</button>
+          <button className="btn btn-segel" id="btnTambah" onClick={onTambah}><IconPlus size={14}/>Terbitkan Nomor</button>
+          <button className="btn btn-header-muted" onClick={onLogout} title="Keluar"><IconLogout size={14}/></button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function Toolbar({
+  search, onSearch, kodeFilter, onKodeFilter, aktifKodeList,
+  onRefreshSheet, refreshing, onImportClick, fileInputRef, onFileChange,
+  downloadMenuOpen, setDownloadMenuOpen, onExportExcel, onExportCsv, onExportPdf, onPrint, onBackupJson
+}){
+  const wrapRef = useRef(null);
+  useEffect(function(){
+    if(!downloadMenuOpen) return;
+    function onDocClick(e){ if(wrapRef.current && !wrapRef.current.contains(e.target)) setDownloadMenuOpen(false); }
+    document.addEventListener("click", onDocClick);
+    return function(){ document.removeEventListener("click", onDocClick); };
+  }, [downloadMenuOpen]);
+
+  return (
+    <div className="toolbar">
+      <div className="search">
+        <IconSearch size={15}/>
+        <input type="text" placeholder="Cari perihal, tujuan, atau nomor surat..." value={search} onChange={function(e){ onSearch(e.target.value); }} />
+      </div>
+      <select value={kodeFilter} onChange={function(e){ onKodeFilter(e.target.value); }}>
+        <option value="">Semua kode klasifikasi</option>
+        {aktifKodeList.map(k => <option key={k.id} value={k.id}>{k.kode} — {k.nama}</option>)}
+      </select>
+      <div className="toolbar-right">
+        <button className="btn btn-segel" onClick={onRefreshSheet} disabled={refreshing}>
+          {refreshing ? <IconRefresh size={14} className="spin"/> : <IconRefresh size={14}/>}
+          {refreshing ? "Memuat..." : "Refresh Google Sheet"}
+        </button>
+        <button className="btn btn-ghost" onClick={onImportClick}><IconUpload size={14}/>Impor Excel/CSV</button>
+        <input ref={fileInputRef} type="file" accept=".json,.csv,.xlsx,.xls" className="visually-hidden" onChange={onFileChange} />
+        <div className="dropdown-wrap" ref={wrapRef}>
+          <button className="btn btn-ghost" onClick={function(e){ e.stopPropagation(); setDownloadMenuOpen(!downloadMenuOpen); }}>
+            <IconDownload size={14}/>Unduh<IconChevronDown size={14}/>
+          </button>
+          {downloadMenuOpen && (
+            <div className="dropdown-menu">
+              <button className="dropdown-item" onClick={function(){ setDownloadMenuOpen(false); onExportExcel(); }}>Excel (.xlsx)</button>
+              <button className="dropdown-item" onClick={function(){ setDownloadMenuOpen(false); onExportCsv(); }}>CSV (.csv)</button>
+              <button className="dropdown-item" onClick={function(){ setDownloadMenuOpen(false); onExportPdf(); }}>PDF (.pdf)</button>
+              <button className="dropdown-item" onClick={function(){ setDownloadMenuOpen(false); onPrint(); }}>Cetak</button>
+            </div>
+          )}
+        </div>
+        <button className="btn btn-ghost" onClick={onBackupJson}>Cadangkan</button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== TABEL SURAT ============================== */
+
+function SuratTable({ S, rows, pageInfo, onRowClick, onEdit, onDelete, paginationProps }){
+  if(!pageInfo.total){
+    return (
+      <div className="card">
+        <div className="empty">
+          <IconInbox size={34}/>
+          <p>Tidak ada surat yang cocok</p>
+          <p>Coba ubah kata kunci pencarian atau filter kode klasifikasi.</p>
+        </div>
+      </div>
+    );
   }
+
+  function RowActions({ s, mobile }){
+    const stop = function(e){ e.stopPropagation(); };
+    if(mobile){
+      return (
+        <div className="surat-card-actions">
+          <button className="pill-btn pill-btn-edit" onClick={function(e){ stop(e); onEdit(s.id); }}><IconEdit size={13}/>Ubah</button>
+          <button className="pill-btn pill-btn-delete" onClick={function(e){ stop(e); onDelete(s); }}><IconDelete size={13}/>Hapus</button>
+        </div>
+      );
+    }
+    return (
+      <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
+        <button className="icon-btn icon-btn-edit" title="Ubah" onClick={function(e){ stop(e); onEdit(s.id); }}><IconEdit/></button>
+        <button className="icon-btn icon-btn-delete" title="Hapus" onClick={function(e){ stop(e); onDelete(s); }}><IconDelete/></button>
+      </div>
+    );
+  }
+
+  return (
+    <React.Fragment>
+      <div className="card table-desktop">
+        <table>
+          <thead>
+            <tr><th style={{width:40}}>No</th><th>Nomor Surat</th><th>Tanggal</th><th>Tujuan</th><th>Perihal</th><th>Klasifikasi</th><th></th></tr>
+          </thead>
+          <tbody>
+            {rows.map(function(s){
+              const k = kodeOf(S, s.kodeId);
+              const warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
+              return (
+                <tr key={s.id} className="row-clickable" onClick={function(){ onRowClick(s.id); }}>
+                  <td className="mono" style={{color:"var(--ink-400)"}}>{s.urut}</td>
+                  <td><span className="nomor-badge mono">{displayNomor(S,s)}</span></td>
+                  <td style={{whiteSpace:"nowrap",color:"var(--ink-600)"}}>{fmtTanggal(s.tanggal)}</td>
+                  <td>{s.tujuan||"—"}</td>
+                  <td className="truncate" title={s.perihal}>{s.perihal}</td>
+                  <td>{k ? <span className={"badge "+warnaCls}>{k.kode}</span> : "—"}</td>
+                  <td style={{textAlign:"right"}}><RowActions s={s}/></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <Pagination {...paginationProps}/>
+      </div>
+
+      <div className="table-mobile">
+        {rows.map(function(s){
+          const k = kodeOf(S, s.kodeId);
+          const warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
+          return (
+            <div key={s.id} className="surat-card row-clickable" onClick={function(){ onRowClick(s.id); }}>
+              <div className="surat-card-top">
+                <span className="nomor-badge mono">{displayNomor(S,s)}</span>
+                {k && <span className={"badge "+warnaCls}>{k.kode}</span>}
+              </div>
+              <p className="surat-card-perihal">{s.perihal}</p>
+              <p className="surat-card-meta">{fmtTanggal(s.tanggal)}{s.tujuan ? " · Tujuan: "+s.tujuan : ""}</p>
+              <RowActions s={s} mobile/>
+            </div>
+          );
+        })}
+        <div className="card"><Pagination {...paginationProps}/></div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+/* ============================== MODAL: TAMBAH/UBAH SURAT ============================== */
+
+function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
+  const opsiKodeBase = aktifKode(S);
+  const [kodeId, setKodeId] = useState(null);
+  const [tanggal, setTanggal] = useState(isoToday(0));
+  const [tujuan, setTujuan] = useState("");
+  const [perihal, setPerihal] = useState("");
+  const [dibuatOleh, setDibuatOleh] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(function(){
+    if(!open) return;
+    if(editing){
+      setKodeId(editing.kodeId);
+      setTanggal(editing.tanggal);
+      setTujuan(editing.tujuan||"");
+      setPerihal(editing.perihal||"");
+      setDibuatOleh(editing.dibuatOleh||"");
+    } else {
+      setKodeId(opsiKodeBase[0] ? opsiKodeBase[0].id : null);
+      setTanggal(isoToday(0));
+      setTujuan(""); setPerihal(""); setDibuatOleh("");
+    }
+    setError("");
+  }, [open, editing]);
+
+  if(!open) return null;
+
+  let opsiKode = opsiKodeBase;
+  if(editing){
+    const kodeEditing = kodeOf(S, editing.kodeId);
+    if(kodeEditing && !kodeEditing.aktif) opsiKode = opsiKode.concat([kodeEditing]);
+  }
+
+  const previewUrut = editing ? editing.urut : (S.counter + 1);
+  let preview;
+  if(editing && editing.nomorOverride && kodeId === editing.kodeId){
+    preview = editing.nomorOverride;
+  } else {
+    preview = kodeId ? nomorSurat(S, previewUrut, kodeId) : "—";
+  }
+
+  function submit(){
+    if(!kodeId){ setError("Pilih kode klasifikasi."); return; }
+    if(!tanggal){ setError("Tanggal surat wajib diisi."); return; }
+    if(!perihal.trim()){ setError("Perihal wajib diisi."); return; }
+    setError("");
+    onSubmit({ kodeId: Number(kodeId), tanggal: tanggal, tujuan: tujuan.trim(), perihal: perihal.trim(), dibuatOleh: dibuatOleh.trim() });
+  }
+
+  return (
+    <div className="overlay" onClick={function(e){ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="modal">
+        <div className="modal-head">
+          <h2>{editing ? "Ubah Surat" : "Terbitkan Nomor Baru"}</h2>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <div className="preview-box">
+            <span>{editing ? "Nomor surat (tidak dapat diubah)" : "Nomor surat akan menjadi"}</span>
+            <span className="mono">{preview}</span>
+          </div>
+          {!opsiKodeBase.length && <p className="error-text">Belum ada kode klasifikasi aktif. Tambahkan lewat "Kelola Kode" dulu.</p>}
+          <div className="field">
+            <label>Kode Klasifikasi</label>
+            <select value={kodeId||""} onChange={function(e){ setKodeId(Number(e.target.value)); }}>
+              {opsiKode.map(k => <option key={k.id} value={k.id}>{k.kode} — {k.nama}{k.aktif?"":" (nonaktif)"}</option>)}
+            </select>
+          </div>
+          <div className="grid2">
+            <div className="field"><label>Tanggal Surat</label><input type="date" value={tanggal} onChange={function(e){ setTanggal(e.target.value); }}/></div>
+            <div className="field"><label>Tujuan Surat</label><input type="text" placeholder="Nama/bagian tujuan" value={tujuan} onChange={function(e){ setTujuan(e.target.value); }}/></div>
+          </div>
+          <div className="field"><label>Perihal</label><input type="text" placeholder="Contoh: PAK Cory / Surat Undangan Rapat" value={perihal} onChange={function(e){ setPerihal(e.target.value); }}/></div>
+          <div className="field"><label>Dibuat oleh (opsional)</label><input type="text" placeholder="Nama petugas" value={dibuatOleh} onChange={function(e){ setDibuatOleh(e.target.value); }}/></div>
+          {error && <p className="error-text">{error}</p>}
+          <div className="form-actions">
+            <button className="btn-ghost" onClick={onClose} disabled={submitting}>Batal</button>
+            <button className="btn-dark" onClick={submit} disabled={!opsiKodeBase.length || submitting}>
+              {submitting ? "Menerbitkan..." : (editing ? "Simpan Perubahan" : "Terbitkan")}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== MODAL: DETAIL ============================== */
+
+function DetailModal({ open, surat, S, onClose, onEdit }){
+  if(!open || !surat) return null;
+  const k = kodeOf(S, surat.kodeId);
+  function Baris({ label, value }){
+    return <div className="detail-row"><span className="detail-label">{label}</span><span className="detail-value">{value}</span></div>;
+  }
+  return (
+    <div className="overlay" onClick={function(e){ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="modal">
+        <div className="modal-head"><h2>Detail Surat</h2><button className="modal-close" onClick={onClose}>&times;</button></div>
+        <div className="modal-body">
+          <div className="detail-hero"><span className="nomor-badge mono">{displayNomor(S,surat)}</span></div>
+          <div className="detail-grid">
+            <Baris label="Kode Klasifikasi" value={k ? (k.kode+" — "+k.nama) : "—"}/>
+            <Baris label="Tanggal Surat" value={fmtTanggal(surat.tanggal)}/>
+            <Baris label="Tujuan Surat" value={surat.tujuan||"—"}/>
+            <Baris label="Perihal" value={surat.perihal}/>
+            <Baris label="Nomor Urut" value={String(surat.urut)}/>
+            <Baris label="Dibuat oleh" value={surat.dibuatOleh||"—"}/>
+          </div>
+          <div className="form-actions">
+            <button className="btn-ghost" onClick={onClose}>Tutup</button>
+            <button className="btn-dark" onClick={function(){ onEdit(surat.id); }}>Ubah Surat</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== MODAL: KONFIRMASI & PEMBERITAHUAN ============================== */
+
+function ConfirmModal({ open, message, onYes, onNo }){
+  if(!open) return null;
+  return (
+    <div className="overlay" onClick={function(e){ if(e.target===e.currentTarget) onNo(); }}>
+      <div className="modal" style={{maxWidth:400}}>
+        <div className="modal-body" style={{paddingTop:26}}>
+          <p style={{fontSize:14,lineHeight:1.55,margin:"0 0 20px",whiteSpace:"pre-line"}}>{message}</p>
+          <div className="form-actions">
+            <button className="btn-ghost" onClick={onNo}>Batal</button>
+            <button className="btn-dark" onClick={onYes}>Ya, Lanjutkan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NoticeModal({ open, title, message, onClose }){
+  if(!open) return null;
+  return (
+    <div className="overlay" onClick={function(e){ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="modal" style={{maxWidth:420}}>
+        <div className="modal-head"><h2>{title}</h2><button className="modal-close" onClick={onClose}>&times;</button></div>
+        <div className="modal-body">
+          <p style={{fontSize:13.5,lineHeight:1.6,margin:0,whiteSpace:"pre-line"}}>{message}</p>
+          <button className="btn-dark" onClick={onClose} style={{width:"100%",padding:11,borderRadius:8,fontWeight:700,cursor:"pointer"}}>Tutup</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== MODAL: HAPUS SEMUA ============================== */
+
+function HapusSemuaModal({ open, count, onClose, onConfirm }){
+  const [text, setText] = useState("");
+  useEffect(function(){ if(open) setText(""); }, [open]);
+  if(!open) return null;
+  const match = text.trim().toUpperCase() === "HAPUS SEMUA";
+  return (
+    <div className="overlay" onClick={function(e){ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="modal" style={{maxWidth:420}}>
+        <div className="modal-head"><h2 style={{color:"var(--red)"}}>Hapus Semua Data Surat</h2><button className="modal-close" onClick={onClose}>&times;</button></div>
+        <div className="modal-body">
+          <p style={{fontSize:13.5,lineHeight:1.6,margin:"0 0 14px"}}>Tindakan ini akan menghapus <b>{count} data surat</b> secara PERMANEN dari perangkat ini dan tidak dapat dibatalkan. Kode klasifikasi dan pengaturan tetap tersimpan.</p>
+          <p style={{fontSize:12.5,color:"var(--ink-600)",margin:"0 0 8px"}}>Ketik <b className="mono">HAPUS SEMUA</b> untuk mengonfirmasi:</p>
+          <input type="text" placeholder="Ketik di sini" autoComplete="off" value={text} onChange={function(e){ setText(e.target.value); }}
+            style={{width:"100%",padding:"10px 12px",borderRadius:8,border:"1px solid var(--ink-100)",fontSize:13}}/>
+          <div className="form-actions" style={{marginTop:16}}>
+            <button className="btn-ghost" onClick={onClose}>Batal</button>
+            <button disabled={!match} onClick={onConfirm}
+              style={{flex:1,padding:11,borderRadius:8,fontWeight:700,cursor:match?"pointer":"not-allowed",background:match?"var(--red)":"var(--ink-100)",color:match?"#fff":"var(--ink-400)",border:"none"}}>
+              Hapus Permanen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== MODAL: KELOLA KODE ============================== */
+
+function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showConfirm, onOpenHapusSemua, onTestRefresh }){
+  const [newKode, setNewKode] = useState("");
+  const [newNama, setNewNama] = useState("");
+  const [kodeErr, setKodeErr] = useState("");
+
+  const [setInstansi, setSetInstansi] = useState(S.settings.instansiKode);
+  const [setDigit, setSetDigit] = useState(S.settings.digit);
+
+  const [sheetUrl, setSheetUrl] = useState(S.settings.googleSheetUrl||"");
+  const [sheetUrlErr, setSheetUrlErr] = useState("");
+
+  const [pwOld, setPwOld] = useState(""); const [pwNew, setPwNew] = useState(""); const [pwNewConfirm, setPwNewConfirm] = useState("");
+  const [pwErr, setPwErr] = useState("");
+
+  const [appsExpanded, setAppsExpanded] = useState(false);
+  const [appsUrl, setAppsUrl] = useState(S.settings.appsScriptUrl||"");
+  const [appsErr, setAppsErr] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(function(){
+    if(open){
+      setSetInstansi(S.settings.instansiKode);
+      setSetDigit(S.settings.digit);
+      setSheetUrl(S.settings.googleSheetUrl||"");
+      setAppsUrl(S.settings.appsScriptUrl||"");
+      setNewKode(""); setNewNama(""); setKodeErr("");
+      setPwOld(""); setPwNew(""); setPwNewConfirm(""); setPwErr("");
+      setSheetUrlErr(""); setAppsErr("");
+    }
+  }, [open]);
+
+  if(!open) return null;
+
+  function addKode(){
+    const kode = newKode.trim(), nama = newNama.trim();
+    if(!kode || !nama){ setKodeErr("Isi kode dan nama."); return; }
+    const dup = S.kodeList.some(function(k){ return k.kode.toLowerCase()===kode.toLowerCase(); });
+    if(dup){ setKodeErr("Kode ini sudah ada."); return; }
+    mutateS(function(draft){
+      draft.kodeList.push({ id:uid(), kode:kode, nama:nama, warna:WARNA_CYCLE[draft.kodeList.length % WARNA_CYCLE.length], aktif:true });
+    });
+    setKodeErr(""); setNewKode(""); setNewNama("");
+    showToast("Kode "+kode+" ditambahkan.");
+  }
+  function toggleAktif(id, aktif){
+    mutateS(function(draft){ const k = draft.kodeList.find(x=>x.id===id); if(k) k.aktif = aktif; });
+  }
+  function saveSettings(){
+    const instansi = setInstansi.trim() || "W.9";
+    const digit = Math.max(1, Math.min(6, Number(setDigit)||3));
+    mutateS(function(draft){ draft.settings.instansiKode = instansi; draft.settings.digit = digit; });
+    showToast("Pengaturan disimpan.");
+  }
+  function saveSheetUrl(){
+    const url = sheetUrl.trim();
+    if(url && !/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
+      setSheetUrlErr("Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...");
+      return;
+    }
+    setSheetUrlErr("");
+    mutateS(function(draft){ draft.settings.googleSheetUrl = url; });
+    showToast(url ? "Tautan Google Sheet disimpan." : "Tautan Google Sheet dikosongkan.");
+  }
+  function testRefresh(){
+    const url = sheetUrl.trim();
+    if(!url){ setSheetUrlErr("Isi tautan Google Sheet terlebih dahulu."); return; }
+    if(!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
+      setSheetUrlErr("Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...");
+      return;
+    }
+    setSheetUrlErr("");
+    mutateS(function(draft){ draft.settings.googleSheetUrl = url; });
+    onClose();
+    onTestRefresh(url);
+  }
+  function changePw(){
+    if(simpleHash(pwOld) !== getStoredPwHash()){ setPwErr("Kata sandi saat ini salah."); return; }
+    if(pwNew.length < 4){ setPwErr("Kata sandi baru minimal 4 karakter."); return; }
+    if(pwNew !== pwNewConfirm){ setPwErr("Konfirmasi kata sandi baru tidak cocok."); return; }
+    setStoredPwHash(simpleHash(pwNew));
+    setPwOld(""); setPwNew(""); setPwNewConfirm(""); setPwErr("");
+    showToast("Kata sandi berhasil diubah.");
+  }
+  function copySnippet(){
+    function done(){ setCopied(true); setTimeout(function(){ setCopied(false); }, 1800); }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(APPS_SCRIPT_SNIPPET).then(done).catch(done);
+    } else { done(); }
+  }
+  function saveAppsUrl(){
+    const url = appsUrl.trim();
+    if(url && !/^https:\/\/script\.google\.com\/macros\//.test(url)){
+      setAppsErr("URL sepertinya bukan URL Web App Apps Script. Harus diawali https://script.google.com/macros/...");
+      return;
+    }
+    setAppsErr("");
+    mutateS(function(draft){ draft.settings.appsScriptUrl = url; });
+    showToast(url ? "URL tulis-balik disimpan." : "URL tulis-balik dikosongkan.");
+  }
+
+  return (
+    <div className="overlay" onClick={function(e){ if(e.target===e.currentTarget) onClose(); }}>
+      <div className="modal">
+        <div className="modal-head"><h2>Kelola Kode Klasifikasi</h2><button className="modal-close" onClick={onClose}>&times;</button></div>
+        <div className="modal-body">
+          <div className="banner"><IconInfo size={15}/><span>Kode klasifikasi ditambahkan manual sesuai kebutuhan kantor Anda. Yang otomatis hanya deret nomor urut di belakang (mis. ...-001, ...-002, dst).</span></div>
+
+          <div>
+            {S.kodeList.map(function(k){
+              return (
+                <div className="kode-row" key={k.id}>
+                  <div><b className="mono">{k.kode}</b> &nbsp;{k.nama}{!k.aktif && <span style={{color:"var(--ink-400)"}}> (nonaktif)</span>}</div>
+                  {k.aktif
+                    ? <button className="btn-danger-text" onClick={function(){ toggleAktif(k.id, false); }}>Nonaktifkan</button>
+                    : <button className="btn-danger-text" style={{color:"var(--green)"}} onClick={function(){ toggleAktif(k.id, true); }}>Aktifkan</button>}
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
+            <p className="hint" style={{marginBottom:8,fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Tambah kode manual</p>
+            <div className="grid2">
+              <div className="field"><label>Kode</label><input type="text" placeholder="mis. KP atau KP.10.02" value={newKode} onChange={function(e){ setNewKode(e.target.value); }}/></div>
+              <div className="field"><label>Nama</label><input type="text" placeholder="mis. Kepegawaian" value={newNama} onChange={function(e){ setNewNama(e.target.value); }}/></div>
+            </div>
+            {kodeErr && <p className="error-text" style={{marginTop:8}}>{kodeErr}</p>}
+            <button className="btn-dark" onClick={addKode} style={{width:"100%",marginTop:10,padding:10,borderRadius:8}}>+ Tambah Kode</button>
+          </div>
+
+          <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
+            <p className="hint" style={{marginBottom:8,fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Pengaturan penomoran</p>
+            <div className="settings-row">
+              <div className="field" style={{flex:1}}><label>Kode Instansi</label><input type="text" value={setInstansi} onChange={function(e){ setSetInstansi(e.target.value); }}/></div>
+              <div className="field" style={{width:110}}><label>Digit Nomor</label><input type="number" min="1" max="6" value={setDigit} onChange={function(e){ setSetDigit(e.target.value); }}/></div>
+            </div>
+            <button className="btn-ghost" onClick={saveSettings} style={{width:"100%",marginTop:8,padding:10,borderRadius:8}}>Simpan Pengaturan</button>
+          </div>
+
+          <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
+            <p className="hint" style={{marginBottom:8,fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Sumber data Google Sheet (opsional)</p>
+            <p className="hint" style={{marginBottom:10,lineHeight:1.5}}>Tempel tautan <b>Bagikan</b> biasa dari Google Sheets — tidak perlu Publikasikan ke Web atau mengubah data master. Cukup: klik <b>Bagikan</b> di kanan atas sheet → ubah akses umum menjadi "Siapa saja yang memiliki tautan → Dapat melihat" → salin tautannya → tempel di sini.</p>
+            <div className="field"><label>Tautan Google Sheet</label><input type="text" placeholder="https://docs.google.com/spreadsheets/d/XXXXXXXX/edit" value={sheetUrl} onChange={function(e){ setSheetUrl(e.target.value); }}/></div>
+            {sheetUrlErr && <p className="error-text" style={{marginTop:8}}>{sheetUrlErr}</p>}
+            <div className="form-actions" style={{marginTop:10}}>
+              <button className="btn-ghost" onClick={saveSheetUrl}>Simpan Tautan</button>
+              <button className="btn-dark" onClick={testRefresh}>Simpan &amp; Refresh Sekarang</button>
+            </div>
+          </div>
+
+          <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
+            <p className="hint" style={{marginBottom:8,fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Ubah kata sandi akses</p>
+            <div className="field"><label>Kata sandi saat ini</label><input type="password" placeholder="Kata sandi saat ini" value={pwOld} onChange={function(e){ setPwOld(e.target.value); }}/></div>
+            <div className="grid2" style={{marginTop:10}}>
+              <div className="field"><label>Kata sandi baru</label><input type="password" placeholder="Minimal 4 karakter" value={pwNew} onChange={function(e){ setPwNew(e.target.value); }}/></div>
+              <div className="field"><label>Ulangi kata sandi baru</label><input type="password" placeholder="Ulangi kata sandi baru" value={pwNewConfirm} onChange={function(e){ setPwNewConfirm(e.target.value); }}/></div>
+            </div>
+            {pwErr && <p className="error-text" style={{marginTop:8}}>{pwErr}</p>}
+            <button className="btn-dark" onClick={changePw} style={{width:"100%",marginTop:10,padding:10,borderRadius:8}}>Ubah Kata Sandi</button>
+          </div>
+
+          <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
+            <button onClick={function(){ setAppsExpanded(!appsExpanded); }} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",background:"none",border:"none",padding:0,cursor:"pointer",textAlign:"left"}}>
+              <span className="hint" style={{fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Tulis balik ke Google Sheet (lanjutan, opsional)</span>
+              <span style={{color:"var(--ink-400)",transition:"transform .15s",transform:appsExpanded?"rotate(180deg)":"none"}}><IconChevronDown size={14}/></span>
+            </button>
+            {S.settings.appsScriptUrl
+              ? <p className="hint" style={{marginTop:6,color:"var(--green)"}}>✓ Aktif — surat baru otomatis tercatat ke sheet</p>
+              : <p className="hint" style={{marginTop:6}}>Nonaktif. Surat tetap tersimpan normal di perangkat ini tanpa fitur ini.</p>}
+            {appsExpanded && (
+              <div style={{marginTop:12}}>
+                <p className="hint" style={{marginBottom:10,lineHeight:1.6}}>Supaya surat yang diterbitkan dari SIMORIS ikut tercatat otomatis di sheet, ikuti langkah berikut sekali saja:</p>
+                <ol style={{fontSize:12.5,color:"var(--ink-700)",lineHeight:2,margin:"0 0 12px",paddingLeft:20}}>
+                  <li>Buka Google Sheet Anda, klik menu <b>Extensions</b> → <b>Apps Script</b>.</li>
+                  <li>Hapus tulisan yang ada, lalu tempel kode di bawah ini (klik "Salin Kode" dulu).</li>
+                  <li>Klik <b>Deploy</b> (kanan atas) → <b>New deployment</b>.</li>
+                  <li>Klik ikon gerigi ⚙️ di samping "Select type" → pilih <b>Web app</b>.</li>
+                  <li>Pada "Who has access", pilih <b>Anyone</b> → klik <b>Deploy</b> → izinkan akses jika diminta.</li>
+                  <li>Salin <b>URL Web app</b> yang muncul → tempel di kolom di bawah → Simpan.</li>
+                </ol>
+                <div style={{position:"relative"}}>
+                  <textarea className="code-snippet" readOnly rows={9} value={APPS_SCRIPT_SNIPPET} onClick={function(e){ e.target.select(); }}/>
+                  <button className="btn btn-ghost" onClick={copySnippet} style={{position:"absolute",top:8,right:8,padding:"6px 10px",fontSize:11.5}}>{copied ? "Tersalin ✓" : "Salin Kode"}</button>
+                </div>
+                <div className="field" style={{marginTop:10}}><label>URL Web App Apps Script</label><input type="text" placeholder="https://script.google.com/macros/s/XXXXX/exec" value={appsUrl} onChange={function(e){ setAppsUrl(e.target.value); }}/></div>
+                {appsErr && <p className="error-text" style={{marginTop:8}}>{appsErr}</p>}
+                <p className="hint" style={{marginTop:8}}>Catatan: hanya surat <b>baru</b> dari SIMORIS yang dikirim ke sheet. Kalau URL ini diisi, nomor surat akan diminta dari sheet (lebih aman kalau dipakai banyak perangkat sekaligus) — kalau sheet tidak terjangkau, SIMORIS otomatis memakai nomor lokal sebagai cadangan.</p>
+                <button className="btn-dark" onClick={saveAppsUrl} style={{width:"100%",marginTop:10,padding:10,borderRadius:8}}>Simpan URL Tulis-Balik</button>
+              </div>
+            )}
+          </div>
+
+          <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
+            <p className="hint" style={{marginBottom:8,fontWeight:700,color:"var(--red)",textTransform:"uppercase",fontSize:11}}>Zona Bahaya</p>
+            <div className="danger-zone">
+              <p style={{fontSize:12.5,color:"var(--ink-600)",margin:"0 0 10px",lineHeight:1.5}}>Menghapus SEMUA data surat ({S.surats.length} surat) secara permanen dari perangkat ini. Kode klasifikasi dan pengaturan tidak ikut terhapus.</p>
+              <button onClick={onOpenHapusSemua} style={{width:"100%",padding:10,borderRadius:8,fontWeight:700,cursor:"pointer",background:"var(--red)",color:"#fff",border:"none"}}>Hapus Semua Data Surat</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== APP ============================== */
+
+function App(){
+  const [authed, setAuthed] = useState(isoAuthedInit);
+  const [S, setS] = useState(loadState);
+  const sRef = useRef(S);
+  useEffect(function(){ sRef.current = S; }, [S]);
+  useEffect(function(){ saveState(S); }, [S]);
+
+  function mutateS(mutator){
+    setS(function(prev){ const next = cloneState(prev); mutator(next); return next; });
+  }
+
+  const [search, setSearch] = useState("");
+  const [kodeFilter, setKodeFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  const [modal, setModal] = useState(null); // 'surat' | 'kelola' | 'detail' | 'confirm' | 'notice' | 'hapusSemua'
+  const [editingId, setEditingId] = useState(null);
+  const [detailId, setDetailId] = useState(null);
+  const [confirmMsg, setConfirmMsg] = useState("");
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [noticeTitle, setNoticeTitle] = useState("");
+  const [noticeMsg, setNoticeMsg] = useState("");
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [submittingSurat, setSubmittingSurat] = useState(false);
+  const [toast, setToast] = useState("");
+  const toastTimer = useRef(null);
+  const fileInputRef = useRef(null);
 
   function showToast(msg){
-    ui.toast = msg;
-    render();
-    setTimeout(function(){ ui.toast=""; render(); }, 2600);
+    setToast(msg);
+    if(toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(function(){ setToast(""); }, 2600);
+  }
+  function showNotice(title, msg){ setNoticeTitle(title||"Pemberitahuan"); setNoticeMsg(msg); setModal("notice"); }
+  function showConfirm(msg, onYes){ setConfirmMsg(msg); setConfirmAction(function(){ return onYes; }); setModal("confirm"); }
+  function closeModal(){ setModal(null); }
+
+  const filtered = useMemo(function(){
+    const sorted = S.surats; // sudah dijaga terurut menurun oleh mutateS
+    if(!search && !kodeFilter) return sorted;
+    const s = search.toLowerCase();
+    return sorted.filter(function(x){
+      let matchSearch = true;
+      if(s){
+        const hay = (x.perihal+" "+x.tujuan+" "+displayNomor(S,x)).toLowerCase();
+        matchSearch = hay.indexOf(s) > -1;
+      }
+      const matchKode = !kodeFilter || String(x.kodeId) === kodeFilter;
+      return matchSearch && matchKode;
+    });
+  }, [S, search, kodeFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  useEffect(function(){ if(page !== safePage) setPage(safePage); }, [safePage]);
+  const start = (safePage-1) * pageSize;
+  const rows = filtered.slice(start, start+pageSize);
+
+  const editingSurat = editingId ? S.surats.find(function(x){ return x.id===editingId; }) : null;
+  const detailSurat = detailId ? S.surats.find(function(x){ return x.id===detailId; }) : null;
+
+  /* ---------- Surat CRUD ---------- */
+
+  function openTambah(){ setEditingId(null); setModal("surat"); }
+  function openEdit(id){ setEditingId(id); setModal("surat"); }
+  function closeSuratModal(){ setModal(null); setEditingId(null); }
+
+  function finalizeNewSurat(urutOrNull, kodeId, nomorOverride, tujuan, perihal, tanggal, dibuatOleh, customMsg){
+    let msg = customMsg;
+    mutateS(function(draft){
+      let finalUrut = urutOrNull;
+      if(finalUrut == null){ draft.counter += 1; finalUrut = draft.counter; }
+      else if(finalUrut > draft.counter){ draft.counter = finalUrut; }
+      const nomorText = nomorOverride || nomorSurat(draft, finalUrut, kodeId);
+      draft.surats.unshift({ id:uid(), urut:finalUrut, kodeId:kodeId, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:dibuatOleh, sumber:"manual", nomorOverride: nomorOverride||null });
+      draft.surats.sort(function(a,b){ return b.urut-a.urut; });
+      if(!msg) msg = "Nomor "+nomorText+" berhasil diterbitkan.";
+    });
+    setModal(null); setEditingId(null); setPage(1);
+    showToast(msg);
   }
 
-  // ---------- render pieces ----------
-
-  function renderHeader(){
-    return ''+
-    '<header class="app-header"><div class="wrap header-inner">'+
-      '<div class="brand">'+
-        '<div class="brand-mark">№</div>'+
-        '<div><h1>SIMORIS</h1><p>Sistem Penomoran Surat Otomatis</p></div>'+
-      '</div>'+
-      '<div class="header-actions">'+
-        '<div class="count-box"><p>Surat tercatat</p><strong class="mono">'+String(S.surats.length).padStart(3,"0")+'</strong></div>'+
-        '<button class="btn btn-ghost" id="btnKelola" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.25)">Kelola Kode</button>'+
-        '<button class="btn btn-segel" id="btnTambah">+ Terbitkan Nomor</button>'+
-        '<button class="btn btn-ghost" id="btnLogout" style="background:transparent;color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.25);padding:10px 12px" title="Keluar">Keluar</button>'+
-      '</div>'+
-    '</div></header>';
-  }
-
-  function renderToolbar(){
-    var opts = aktifKode().map(function(k){
-      return '<option value="'+k.id+'"'+(ui.kodeFilter===String(k.id)?" selected":"")+'>'+esc(k.kode)+' — '+esc(k.nama)+'</option>';
-    }).join("");
-    return ''+
-    '<div class="toolbar">'+
-      '<div class="search">'+
-        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
-        '<input type="text" id="searchInput" placeholder="Cari perihal, tujuan, atau nomor surat..." value="'+esc(ui.search)+'" />'+
-      '</div>'+
-      '<select id="kodeFilterSelect"><option value="">Semua kode klasifikasi</option>'+opts+'</select>'+
-      '<div class="toolbar-right">'+
-        '<button class="btn btn-segel" id="btnRefreshSheet">Refresh Google Sheet</button>'+
-        '<button class="btn btn-ghost" id="btnImport">Impor Excel/CSV</button>'+
-        '<input type="file" id="importFileInput" accept=".json,.csv,.xlsx,.xls" class="visually-hidden" />'+
-        '<div class="dropdown-wrap">'+
-          '<button class="btn btn-ghost" id="btnDownloadMenu">'+ICON_DOWNLOAD+'Unduh'+ICON_CHEVRON_DOWN+'</button>'+
-          (ui.downloadMenuOpen ? (
-            '<div class="dropdown-menu">'+
-              '<button class="dropdown-item" id="menuUnduhExcel">Excel (.xlsx)</button>'+
-              '<button class="dropdown-item" id="menuUnduhCsv">CSV (.csv)</button>'+
-              '<button class="dropdown-item" id="menuUnduhPdf">PDF (.pdf)</button>'+
-              '<button class="dropdown-item" id="menuCetak">Cetak</button>'+
-            '</div>'
-          ) : '')+
-        '</div>'+
-        '<button class="btn btn-ghost" id="btnJson">Cadangkan</button>'+
-      '</div>'+
-    '</div>';
-  }
-
-  function renderTable(){
-    var page = currentPage();
-    var rows = page.rows;
-
-    if(!page.total){
-      return '<div class="card"><div class="empty">'+
-        '<p>Tidak ada surat yang cocok</p>'+
-        '<p>Coba ubah kata kunci pencarian atau filter kode klasifikasi.</p>'+
-      '</div></div>';
+  async function handleSubmitSurat(values){
+    if(editingId){
+      mutateS(function(draft){
+        const s = draft.surats.find(function(x){ return x.id===editingId; });
+        if(s){ s.kodeId=values.kodeId; s.tanggal=values.tanggal; s.tujuan=values.tujuan; s.perihal=values.perihal; s.dibuatOleh=values.dibuatOleh; }
+      });
+      setModal(null); setEditingId(null);
+      showToast("Perubahan tersimpan.");
+      return;
     }
-
-    var trs = rows.map(function(s){
-      var k = kodeOf(s.kodeId);
-      var warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
-      return '<tr class="row-clickable" data-row-detail="'+s.id+'">'+
-        '<td class="mono" style="color:var(--ink-400)">'+s.urut+'</td>'+
-        '<td><span class="nomor-badge mono">'+esc(displayNomor(s))+'</span></td>'+
-        '<td style="white-space:nowrap;color:var(--ink-600)">'+fmtTanggal(s.tanggal)+'</td>'+
-        '<td>'+esc(s.tujuan||"—")+'</td>'+
-        '<td class="truncate" title="'+esc(s.perihal)+'">'+esc(s.perihal)+'</td>'+
-        '<td>'+(k?'<span class="badge '+warnaCls+'">'+esc(k.kode)+'</span>':'—')+'</td>'+
-        '<td style="text-align:right">'+
-          '<div class="row-actions">'+
-            '<button class="icon-btn icon-btn-edit" data-edit="'+s.id+'" title="Ubah">'+ICON_EDIT+'</button>'+
-            '<button class="icon-btn icon-btn-delete" data-del="'+s.id+'" title="Hapus">'+ICON_DELETE+'</button>'+
-          '</div>'+
-        '</td>'+
-      '</tr>';
-    }).join("");
-
-    var desktop = '<div class="card table-desktop"><table>'+
-      '<thead><tr><th style="width:40px">No</th><th>Nomor Surat</th><th>Tanggal</th><th>Tujuan</th><th>Perihal</th><th>Klasifikasi</th><th></th></tr></thead>'+
-      '<tbody>'+trs+'</tbody>'+
-    '</table>'+renderPagination(page)+'</div>';
-
-    var cards = rows.map(function(s){
-      var k = kodeOf(s.kodeId);
-      var warnaCls = k ? (WARNA_CLASS[k.warna]||"badge-slate") : "badge-slate";
-      return '<div class="surat-card row-clickable" data-row-detail="'+s.id+'">'+
-        '<div class="surat-card-top">'+
-          '<span class="nomor-badge mono">'+esc(displayNomor(s))+'</span>'+
-          (k?'<span class="badge '+warnaCls+'">'+esc(k.kode)+'</span>':'')+
-        '</div>'+
-        '<p class="surat-card-perihal">'+esc(s.perihal)+'</p>'+
-        '<p class="surat-card-meta">'+fmtTanggal(s.tanggal)+(s.tujuan?' &middot; Tujuan: '+esc(s.tujuan):'')+'</p>'+
-        '<div class="surat-card-actions">'+
-          '<button class="pill-btn pill-btn-edit" data-edit="'+s.id+'">'+ICON_EDIT+'Ubah</button>'+
-          '<button class="pill-btn pill-btn-delete" data-del="'+s.id+'">'+ICON_DELETE+'Hapus</button>'+
-        '</div>'+
-      '</div>';
-    }).join("");
-    var mobile = '<div class="table-mobile">'+cards+'<div class="card">'+renderPagination(page)+'</div></div>';
-
-    return desktop + mobile;
-  }
-
-  function renderPagination(page){
-    var from = page.total ? page.start+1 : 0;
-    var to = Math.min(page.start+ui.pageSize, page.total);
-    var pageBtns = "";
-    var p = ui.page, tp = page.totalPages;
-    // tampilkan maks 5 nomor halaman di sekitar halaman aktif, agar tetap
-    // ringkas walau jumlah halaman sangat banyak (ratusan halaman untuk
-    // data ribuan baris)
-    var lo = Math.max(1, p-2), hi = Math.min(tp, p+2);
-    if(p<=3) hi = Math.min(tp, 5);
-    if(p>=tp-2) lo = Math.max(1, tp-4);
-    if(lo>1) pageBtns += '<button class="page-btn" data-page="1">1</button>'+(lo>2?'<span style="padding:0 2px;color:var(--ink-400)">…</span>':'');
-    for(var i=lo;i<=hi;i++){
-      pageBtns += '<button class="page-btn'+(i===p?' active':'')+'" data-page="'+i+'">'+i+'</button>';
-    }
-    if(hi<tp) pageBtns += (hi<tp-1?'<span style="padding:0 2px;color:var(--ink-400)">…</span>':'')+'<button class="page-btn" data-page="'+tp+'">'+tp+'</button>';
-
-    return '<div class="pagination">'+
-      '<div class="pagination-info">Menampilkan <b>'+from+'–'+to+'</b> dari <b>'+page.total+'</b> surat</div>'+
-      '<div class="pagination-controls">'+
-        '<button class="page-btn js-prev-page"'+(p<=1?' disabled':'')+'>‹ Sebelumnya</button>'+
-        pageBtns+
-        '<button class="page-btn js-next-page"'+(p>=tp?' disabled':'')+'>Berikutnya ›</button>'+
-      '</div>'+
-      '<div class="pagination-controls">'+
-        '<label class="page-jump">Per halaman '+
-          '<select class="page-size-select js-page-size">'+
-            [25,50,100,200,500].map(function(n){ return '<option value="'+n+'"'+(ui.pageSize===n?' selected':'')+'>'+n+'</option>'; }).join("")+
-          '</select>'+
-        '</label>'+
-      '</div>'+
-    '</div>';
-  }
-
-  function renderSuratModal(){
-    if(ui.modal !== "surat") return "";
-    var editing = ui.editingId ? S.surats.filter(function(s){return s.id===ui.editingId;})[0] : null;
-    var kodeId = ui.formKodeId || (editing ? editing.kodeId : (aktifKode()[0] && aktifKode()[0].id));
-    var previewUrut = editing ? editing.urut : (S.counter + 1);
-    var preview;
-    if(editing && !ui.formKodeId && editing.nomorOverride){
-      preview = editing.nomorOverride;
+    const current = sRef.current;
+    const kodeObjForPush = kodeOf(current, values.kodeId);
+    const appsUrl = (current.settings.appsScriptUrl||"").trim();
+    if(appsUrl && kodeObjForPush){
+      setSubmittingSurat(true);
+      const hasil = await requestNomorFromSheet(current, kodeObjForPush.kode, values.tujuan, values.tanggal, values.perihal);
+      setSubmittingSurat(false);
+      if(hasil.ok){
+        finalizeNewSurat(hasil.urut, values.kodeId, hasil.nomor, values.tujuan, values.perihal, values.tanggal, values.dibuatOleh,
+          "Nomor "+hasil.nomor+" berhasil diterbitkan & tersinkron ke sheet.");
+      } else {
+        finalizeNewSurat(null, values.kodeId, null, values.tujuan, values.perihal, values.tanggal, values.dibuatOleh,
+          "Nomor diterbitkan secara lokal (gagal terhubung ke sheet). Sinkronkan manual nanti.");
+      }
     } else {
-      preview = kodeId ? nomorSurat(previewUrut, kodeId) : "—";
+      finalizeNewSurat(null, values.kodeId, null, values.tujuan, values.perihal, values.tanggal, values.dibuatOleh);
     }
-    var opsiKode = aktifKode();
-    if(editing){
-      var kodeEditing = kodeOf(editing.kodeId);
-      if(kodeEditing && !kodeEditing.aktif){ opsiKode = opsiKode.concat([kodeEditing]); }
-    }
-    var opts = opsiKode.map(function(k){
-      var label = esc(k.kode)+' — '+esc(k.nama)+(k.aktif?'':' (nonaktif)');
-      return '<option value="'+k.id+'"'+(String(kodeId)===String(k.id)?" selected":"")+'>'+label+'</option>';
-    }).join("");
-
-    return '<div class="overlay" id="suratOverlay"><div class="modal">'+
-      '<div class="modal-head"><h2>'+(editing?"Ubah Surat":"Terbitkan Nomor Baru")+'</h2>'+
-        '<button class="modal-close" id="closeSuratModal">&times;</button></div>'+
-      '<div class="modal-body">'+
-        '<div class="preview-box"><span>'+(editing?"Nomor surat (tidak dapat diubah)":"Nomor surat akan menjadi")+'</span><span class="mono">'+esc(preview)+'</span></div>'+
-        (aktifKode().length ? '' : '<p class="error-text">Belum ada kode klasifikasi aktif. Tambahkan lewat "Kelola Kode" dulu.</p>')+
-        '<div class="field"><label>Kode Klasifikasi</label><select id="fKode">'+opts+'</select></div>'+
-        '<div class="grid2">'+
-          '<div class="field"><label>Tanggal Surat</label><input type="date" id="fTanggal" value="'+esc(editing?editing.tanggal:isoToday(0))+'" /></div>'+
-          '<div class="field"><label>Tujuan Surat</label><input type="text" id="fTujuan" placeholder="Nama/bagian tujuan" value="'+esc(editing?editing.tujuan:"")+'" /></div>'+
-        '</div>'+
-        '<div class="field"><label>Perihal</label><input type="text" id="fPerihal" placeholder="Contoh: PAK Cory / Surat Undangan Rapat" value="'+esc(editing?editing.perihal:"")+'" /></div>'+
-        '<div class="field"><label>Dibuat oleh (opsional)</label><input type="text" id="fDibuatOleh" placeholder="Nama petugas" value="'+esc(editing?editing.dibuatOleh:"")+'" /></div>'+
-        '<p class="error-text" id="formError" style="display:none"></p>'+
-        '<div class="form-actions">'+
-          '<button class="btn-ghost" id="cancelSuratModal">Batal</button>'+
-          '<button class="btn-dark" id="submitSuratModal"'+(aktifKode().length?'':' disabled')+'>'+(editing?"Simpan Perubahan":"Terbitkan")+'</button>'+
-        '</div>'+
-      '</div></div></div>';
   }
 
-  // ---------------- dialog kustom (pengganti alert/confirm bawaan browser) ----------------
-  // Browser bisa MEMATIKAN alert()/confirm() bawaan secara diam-diam kalau
-  // muncul berkali-kali dalam waktu singkat ("Prevent this page from
-  // creating additional dialogs"). Begitu itu terjadi, SEMUA pemanggilan
-  // alert/confirm berikutnya di halaman — termasuk yang tidak berkaitan —
-  // ikut tidak berfungsi. Karena itu semua dialog di aplikasi ini dibuat
-  // sendiri (bukan bawaan browser) supaya tidak pernah terkena masalah ini.
-
-  function showConfirm(message, onYes){
-    ui.modal = "confirm";
-    ui.confirmMessage = message;
-    ui.confirmOnYes = onYes;
-    render();
-  }
-
-  function showNotice(title, message){
-    ui.modal = "notice";
-    ui.noticeTitle = title || "Pemberitahuan";
-    ui.noticeMessage = message;
-    render();
-  }
-
-  function multiline(str){
-    return esc(str).replace(/\n/g, "<br>");
-  }
-
-  function renderConfirmModal(){
-    if(ui.modal !== "confirm") return "";
-    return '<div class="overlay" id="confirmOverlay"><div class="modal" style="max-width:400px">'+
-      '<div class="modal-body" style="padding-top:26px">'+
-        '<p style="font-size:14px;line-height:1.55;margin:0 0 20px">'+multiline(ui.confirmMessage)+'</p>'+
-        '<div class="form-actions">'+
-          '<button class="btn-ghost" id="confirmNoBtn">Batal</button>'+
-          '<button class="btn-dark" id="confirmYesBtn">Ya, Lanjutkan</button>'+
-        '</div>'+
-      '</div></div></div>';
-  }
-
-  function renderNoticeModal(){
-    if(ui.modal !== "notice") return "";
-    return '<div class="overlay" id="noticeOverlay"><div class="modal" style="max-width:420px">'+
-      '<div class="modal-head"><h2>'+esc(ui.noticeTitle)+'</h2><button class="modal-close" id="noticeCloseBtn2">&times;</button></div>'+
-      '<div class="modal-body">'+
-        '<p style="font-size:13.5px;line-height:1.6;margin:0">'+multiline(ui.noticeMessage)+'</p>'+
-        '<button class="btn-dark" id="noticeCloseBtn" style="width:100%;padding:11px;border-radius:8px;font-weight:700;cursor:pointer">Tutup</button>'+
-      '</div></div></div>';
-  }
-
-  function renderDetailModal(){
-    if(ui.modal !== "detail") return "";
-    var s = S.surats.filter(function(x){return x.id===ui.detailId;})[0];
-    if(!s) return "";
-    var k = kodeOf(s.kodeId);
-
-    function baris(label, value){
-      return '<div class="detail-row"><span class="detail-label">'+label+'</span><span class="detail-value">'+value+'</span></div>';
-    }
-
-    return '<div class="overlay" id="detailOverlay"><div class="modal">'+
-      '<div class="modal-head"><h2>Detail Surat</h2><button class="modal-close" id="closeDetailModal">&times;</button></div>'+
-      '<div class="modal-body">'+
-        '<div class="detail-hero"><span class="nomor-badge mono">'+esc(displayNomor(s))+'</span></div>'+
-        '<div class="detail-grid">'+
-          baris('Kode Klasifikasi', k ? (esc(k.kode)+' — '+esc(k.nama)) : '—')+
-          baris('Tanggal Surat', fmtTanggal(s.tanggal))+
-          baris('Tujuan Surat', esc(s.tujuan||'—'))+
-          baris('Perihal', esc(s.perihal))+
-          baris('Nomor Urut', String(s.urut))+
-          baris('Dibuat oleh', esc(s.dibuatOleh||'—'))+
-        '</div>'+
-        '<div class="form-actions">'+
-          '<button class="btn-ghost" id="closeDetailModal2">Tutup</button>'+
-          '<button class="btn-dark" id="detailEditBtn">Ubah Surat</button>'+
-        '</div>'+
-      '</div></div></div>';
-  }
-
-  function renderKelolaModal(){
-    if(ui.modal !== "kelola") return "";
-    var rows = S.kodeList.map(function(k){
-      return '<div class="kode-row"><div><b class="mono">'+esc(k.kode)+'</b> &nbsp;'+esc(k.nama)+
-        (k.aktif ? '' : ' <span style="color:var(--ink-400)">(nonaktif)</span>')+'</div>'+
-        (k.aktif ? '<button class="btn-danger-text" data-nonaktif="'+k.id+'">Nonaktifkan</button>' : '<button class="btn-danger-text" style="color:var(--green)" data-aktifkan="'+k.id+'">Aktifkan</button>')+
-      '</div>';
-    }).join("");
-
-    return '<div class="overlay" id="kelolaOverlay"><div class="modal">'+
-      '<div class="modal-head"><h2>Kelola Kode Klasifikasi</h2><button class="modal-close" id="closeKelolaModal">&times;</button></div>'+
-      '<div class="modal-body">'+
-        '<div class="banner">Kode klasifikasi ditambahkan manual sesuai kebutuhan kantor Anda. Yang otomatis hanya deret nomor urut di belakang (mis. ...-001, ...-002, dst).</div>'+
-        '<div>'+rows+'</div>'+
-        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
-          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Tambah kode manual</p>'+
-          '<div class="grid2">'+
-            '<div class="field"><label>Kode</label><input type="text" id="newKodeKode" placeholder="mis. KP atau KP.10.02" /></div>'+
-            '<div class="field"><label>Nama</label><input type="text" id="newKodeNama" placeholder="mis. Kepegawaian" /></div>'+
-          '</div>'+
-          '<p class="error-text" id="kodeError" style="display:none;margin-top:8px"></p>'+
-          '<button class="btn-dark" id="addKodeBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">+ Tambah Kode</button>'+
-        '</div>'+
-        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
-          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Pengaturan penomoran</p>'+
-          '<div class="settings-row">'+
-            '<div class="field" style="flex:1"><label>Kode Instansi</label><input type="text" id="setInstansi" value="'+esc(S.settings.instansiKode)+'" /></div>'+
-            '<div class="field" style="width:110px"><label>Digit Nomor</label><input type="number" min="1" max="6" id="setDigit" value="'+S.settings.digit+'" /></div>'+
-          '</div>'+
-          '<button class="btn-ghost" id="saveSettingsBtn" style="width:100%;margin-top:8px;padding:10px;border-radius:8px">Simpan Pengaturan</button>'+
-        '</div>'+
-        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
-          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Sumber data Google Sheet (opsional)</p>'+
-          '<p class="hint" style="margin-bottom:10px;line-height:1.5">Tempel tautan <b>Bagikan</b> biasa dari Google Sheets — tidak perlu Publikasikan ke Web atau mengubah data master. Cukup: klik <b>Bagikan</b> di kanan atas sheet → ubah akses umum menjadi "Siapa saja yang memiliki tautan → Dapat melihat" → salin tautannya → tempel di sini.</p>'+
-          '<div class="field"><label>Tautan Google Sheet</label><input type="text" id="setSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/XXXXXXXX/edit" value="'+esc(S.settings.googleSheetUrl||"")+'" /></div>'+
-          '<p class="error-text" id="sheetUrlError" style="display:none;margin-top:8px"></p>'+
-          '<div class="form-actions" style="margin-top:10px">'+
-            '<button class="btn-ghost" id="saveSheetUrlBtn">Simpan Tautan</button>'+
-            '<button class="btn-dark" id="testRefreshBtn">Simpan &amp; Refresh Sekarang</button>'+
-          '</div>'+
-        '</div>'+
-        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
-          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Ubah kata sandi akses</p>'+
-          '<div class="field"><label>Kata sandi saat ini</label><input type="password" id="pwOld" placeholder="Kata sandi saat ini" /></div>'+
-          '<div class="grid2" style="margin-top:10px">'+
-            '<div class="field"><label>Kata sandi baru</label><input type="password" id="pwNew" placeholder="Minimal 4 karakter" /></div>'+
-            '<div class="field"><label>Ulangi kata sandi baru</label><input type="password" id="pwNewConfirm" placeholder="Ulangi kata sandi baru" /></div>'+
-          '</div>'+
-          '<p class="error-text" id="pwError" style="display:none;margin-top:8px"></p>'+
-          '<button class="btn-dark" id="changePwBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">Ubah Kata Sandi</button>'+
-        '</div>'+
-        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
-          '<button id="toggleAppsScript" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:0;cursor:pointer;text-align:left">'+
-            '<span class="hint" style="font-weight:700;color:var(--ink-600);text-transform:uppercase;font-size:11px">Tulis balik ke Google Sheet (lanjutan, opsional)</span>'+
-            '<span style="color:var(--ink-400);transition:transform .15s;'+(ui.appsScriptExpanded?'transform:rotate(180deg)':'')+'">'+ICON_CHEVRON_DOWN+'</span>'+
-          '</button>'+
-          (S.settings.appsScriptUrl ? '<p class="hint" style="margin-top:6px;color:var(--green)">✓ Aktif — surat baru otomatis tercatat ke sheet</p>' : '<p class="hint" style="margin-top:6px">Nonaktif. Surat tetap tersimpan normal di perangkat ini tanpa fitur ini.</p>')+
-          (ui.appsScriptExpanded ? (
-            '<div style="margin-top:12px">'+
-              '<p class="hint" style="margin-bottom:10px;line-height:1.6">Supaya surat yang diterbitkan dari SIMORIS ikut tercatat otomatis di sheet, ikuti langkah berikut sekali saja:</p>'+
-              '<ol style="font-size:12.5px;color:var(--ink-700);line-height:2;margin:0 0 12px;padding-left:20px">'+
-                '<li>Buka Google Sheet Anda, klik menu <b>Extensions</b> → <b>Apps Script</b>.</li>'+
-                '<li>Hapus tulisan yang ada, lalu tempel kode di bawah ini (klik "Salin Kode" dulu).</li>'+
-                '<li>Klik <b>Deploy</b> (kanan atas) → <b>New deployment</b>.</li>'+
-                '<li>Klik ikon gerigi ⚙️ di samping "Select type" → pilih <b>Web app</b>.</li>'+
-                '<li>Pada "Who has access", pilih <b>Anyone</b> → klik <b>Deploy</b> → izinkan akses jika diminta.</li>'+
-                '<li>Salin <b>URL Web app</b> yang muncul → tempel di kolom di bawah → Simpan.</li>'+
-              '</ol>'+
-              '<div style="position:relative">'+
-                '<textarea class="code-snippet" readonly rows="9" id="appsScriptTextarea" onclick="this.select()">'+esc(APPS_SCRIPT_SNIPPET)+'</textarea>'+
-                '<button id="copyAppsScriptBtn" class="btn btn-ghost" style="position:absolute;top:8px;right:8px;padding:6px 10px;font-size:11.5px">Salin Kode</button>'+
-              '</div>'+
-              '<div class="field" style="margin-top:10px"><label>URL Web App Apps Script</label><input type="text" id="setAppsScriptUrl" placeholder="https://script.google.com/macros/s/XXXXX/exec" value="'+esc(S.settings.appsScriptUrl||"")+'" /></div>'+
-              '<p class="error-text" id="appsScriptError" style="display:none;margin-top:8px"></p>'+
-              '<p class="hint" style="margin-top:8px">Catatan: hanya surat <b>baru</b> dari SIMORIS yang dikirim ke sheet. Kalau URL ini diisi, nomor surat akan diminta dari sheet (lebih aman kalau dipakai banyak perangkat sekaligus) — kalau sheet tidak terjangkau, SIMORIS otomatis memakai nomor lokal sebagai cadangan.</p>'+
-              '<button class="btn-dark" id="saveAppsScriptBtn" style="width:100%;margin-top:10px;padding:10px;border-radius:8px">Simpan URL Tulis-Balik</button>'+
-            '</div>'
-          ) : '')+
-        '</div>'+
-        '<div style="border-top:1px solid var(--ink-100);padding-top:14px">'+
-          '<p class="hint" style="margin-bottom:8px;font-weight:700;color:var(--red);text-transform:uppercase;font-size:11px">Zona Bahaya</p>'+
-          '<div class="danger-zone">'+
-            '<p style="font-size:12.5px;color:var(--ink-600);margin:0 0 10px;line-height:1.5">Menghapus SEMUA data surat ('+S.surats.length+' surat) secara permanen dari perangkat ini. Kode klasifikasi dan pengaturan tidak ikut terhapus.</p>'+
-            '<button id="btnHapusSemua" style="width:100%;padding:10px;border-radius:8px;font-weight:700;cursor:pointer;background:var(--red);color:#fff;border:none">Hapus Semua Data Surat</button>'+
-          '</div>'+
-        '</div>'+
-      '</div></div></div>';
-  }
-
-  function renderHapusSemuaModal(){
-    if(ui.modal !== "hapusSemua") return "";
-    return '<div class="overlay" id="hapusSemuaOverlay"><div class="modal" style="max-width:420px">'+
-      '<div class="modal-head"><h2 style="color:var(--red)">Hapus Semua Data Surat</h2><button class="modal-close" id="closeHapusSemuaModal">&times;</button></div>'+
-      '<div class="modal-body">'+
-        '<p style="font-size:13.5px;line-height:1.6;margin:0 0 14px">Tindakan ini akan menghapus <b>'+S.surats.length+' data surat</b> secara PERMANEN dari perangkat ini dan tidak dapat dibatalkan. Kode klasifikasi dan pengaturan tetap tersimpan.</p>'+
-        '<p style="font-size:12.5px;color:var(--ink-600);margin:0 0 8px">Ketik <b class="mono">HAPUS SEMUA</b> untuk mengonfirmasi:</p>'+
-        '<input type="text" id="hapusSemuaConfirmText" placeholder="Ketik di sini" autocomplete="off" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--ink-100);font-size:13px" />'+
-        '<div class="form-actions" style="margin-top:16px">'+
-          '<button class="btn-ghost" id="cancelHapusSemuaBtn">Batal</button>'+
-          '<button id="confirmHapusSemuaBtn" disabled style="flex:1;padding:11px;border-radius:8px;font-weight:700;cursor:not-allowed;background:var(--ink-100);color:var(--ink-400);border:none">Hapus Permanen</button>'+
-        '</div>'+
-      '</div></div></div>';
-  }
-
-  function renderStorageBanner(){
-    return '<div class="banner">Data tersimpan otomatis di peramban perangkat ini. Untuk memakai data yang sama di perangkat/komputer lain: unduh <b>Cadangkan (JSON)</b> di sini lalu <b>Impor Excel/CSV</b> file tersebut di perangkat lain. Anda juga bisa langsung mengimpor rekap lama dari file Excel (.xlsx) sesuai format spreadsheet sebelumnya (kolom Tujuan Surat, Tanggal Surat, Perihal, Nomor Surat).</div>';
-  }
-
-  function render(){
-    var html = renderHeader() +
-      '<main class="wrap">' + renderToolbar() + renderStorageBanner() + renderTable() + '</main>' +
-      renderSuratModal() + renderKelolaModal() + renderDetailModal() + renderConfirmModal() + renderNoticeModal() + renderHapusSemuaModal() +
-      (ui.toast ? '<div class="toast">'+esc(ui.toast)+'</div>' : '') +
-      '<footer class="app-footer">SIMORIS &middot; data tersimpan di peramban perangkat ini<br>Dibuat oleh IT Pokja SDM</footer>';
-    document.getElementById("app").innerHTML = html;
-    bind();
-  }
-
-  function bind(){
-    var $ = function(id){ return document.getElementById(id); };
-
-    $("btnTambah").onclick = function(){ ui.modal="surat"; ui.editingId=null; ui.formKodeId=null; render(); };
-    $("btnKelola").onclick = function(){ ui.modal="kelola"; render(); };
-    $("btnLogout").onclick = function(){
-      showConfirm("Keluar dari SIMORIS? Anda perlu memasukkan kata sandi lagi untuk membuka kembali.", function(){
-        setAuthed(false);
-        renderLogin();
-      });
-    };
-    $("btnJson").onclick = exportJson;
-    $("btnImport").onclick = function(){ $("importFileInput").click(); };
-    $("btnRefreshSheet").onclick = function(){ refreshFromGoogleSheet($("btnRefreshSheet")); };
-
-    var downloadBtn = $("btnDownloadMenu");
-    if(downloadBtn){
-      downloadBtn.onclick = function(e){
-        e.stopPropagation();
-        ui.downloadMenuOpen = !ui.downloadMenuOpen;
-        render();
-      };
-    }
-    if(ui.downloadMenuOpen){
-      $("menuUnduhExcel").onclick = function(){ ui.downloadMenuOpen=false; exportExcel(); render(); };
-      $("menuUnduhCsv").onclick = function(){ ui.downloadMenuOpen=false; exportCsv(); render(); };
-      $("menuUnduhPdf").onclick = function(){ ui.downloadMenuOpen=false; exportPdf(); render(); };
-      $("menuCetak").onclick = function(){ ui.downloadMenuOpen=false; render(); window.print(); };
-      // klik di luar menu untuk menutupnya
-      setTimeout(function(){
-        document.addEventListener("click", function closeMenuOnce(){
-          ui.downloadMenuOpen = false;
-          render();
-          document.removeEventListener("click", closeMenuOnce);
-        }, { once:true });
-      }, 0);
-    }
-    $("importFileInput").onchange = function(e){
-      var file = e.target.files[0];
-      if(!file) return;
-      var name = file.name.toLowerCase();
-      if(/\.(xlsx|xls)$/.test(name)){
-        var readerBin = new FileReader();
-        readerBin.onload = function(ev){ handleImportedExcel(ev.target.result); };
-        readerBin.readAsArrayBuffer(file);
-      } else {
-        var readerTxt = new FileReader();
-        readerTxt.onload = function(ev){ handleImportedText(ev.target.result, file.name); };
-        readerTxt.readAsText(file, "UTF-8");
-      }
-      e.target.value = "";
-    };
-
-    var si = $("searchInput");
-    si.oninput = function(e){
-      ui.search = e.target.value;
-      ui.page = 1;
-      render();
-      var el = $("searchInput");
-      el.focus(); el.selectionStart = el.selectionEnd = el.value.length;
-    };
-    $("kodeFilterSelect").onchange = function(e){ ui.kodeFilter = e.target.value; ui.page = 1; render(); };
-
-    var prevBtns = document.querySelectorAll(".js-prev-page");
-    var nextBtns = document.querySelectorAll(".js-next-page");
-    var sizeSelects = document.querySelectorAll(".js-page-size");
-    prevBtns.forEach(function(b){ b.onclick = function(){ ui.page = Math.max(1, ui.page-1); render(); }; });
-    nextBtns.forEach(function(b){ b.onclick = function(){ ui.page = ui.page+1; render(); }; });
-    sizeSelects.forEach(function(sel){ sel.onchange = function(e){ ui.pageSize = Number(e.target.value); ui.page = 1; render(); }; });
-    document.querySelectorAll("[data-page]").forEach(function(btn){
-      btn.onclick = function(){ ui.page = Number(btn.getAttribute("data-page")); render(); };
+  function handleDelete(s){
+    showConfirm('Hapus surat "'+displayNomor(sRef.current, s)+'"? Tindakan ini tidak dapat dibatalkan.', function(){
+      mutateS(function(draft){ draft.surats = draft.surats.filter(function(x){ return x.id!==s.id; }); });
+      setModal(null);
+      showToast("Surat dihapus.");
     });
-
-    document.querySelectorAll("[data-edit]").forEach(function(btn){
-      btn.onclick = function(){ ui.modal="surat"; ui.editingId = Number(btn.getAttribute("data-edit")); ui.formKodeId=null; render(); };
-    });
-    document.querySelectorAll("[data-del]").forEach(function(btn){
-      btn.onclick = function(){
-        var id = Number(btn.getAttribute("data-del"));
-        var s = S.surats.filter(function(x){return x.id===id;})[0];
-        showConfirm('Hapus surat "'+(s?displayNomor(s):"")+'"? Tindakan ini tidak dapat dibatalkan.', function(){
-          S.surats = S.surats.filter(function(x){ return x.id!==id; });
-          save(S);
-          showToast("Surat dihapus.");
-        });
-      };
-    });
-    document.querySelectorAll("[data-row-detail]").forEach(function(el){
-      el.onclick = function(e){
-        if(e.target.closest("button")) return;
-        ui.modal = "detail";
-        ui.detailId = Number(el.getAttribute("data-row-detail"));
-        render();
-      };
-    });
-
-    if(ui.modal === "surat"){
-      $("closeSuratModal").onclick = closeSuratModal;
-      $("cancelSuratModal").onclick = closeSuratModal;
-      $("suratOverlay").onclick = function(e){ if(e.target.id==="suratOverlay") closeSuratModal(); };
-      $("fKode").onchange = function(e){ ui.formKodeId = Number(e.target.value); render(); };
-
-      $("submitSuratModal").onclick = function(){
-        var kodeId = Number($("fKode").value);
-        var tanggal = $("fTanggal").value;
-        var tujuan = $("fTujuan").value.trim();
-        var perihal = $("fPerihal").value.trim();
-        var dibuatOleh = $("fDibuatOleh").value.trim();
-        var err = $("formError");
-        if(!kodeId){ err.textContent="Pilih kode klasifikasi."; err.style.display="block"; return; }
-        if(!tanggal){ err.textContent="Tanggal surat wajib diisi."; err.style.display="block"; return; }
-        if(!perihal){ err.textContent="Perihal wajib diisi."; err.style.display="block"; return; }
-
-        if(ui.editingId){
-          var s = S.surats.filter(function(x){return x.id===ui.editingId;})[0];
-          s.kodeId = kodeId; s.tanggal = tanggal; s.tujuan = tujuan; s.perihal = perihal; s.dibuatOleh = dibuatOleh;
-          save(S);
-          ui.modal=null;
-          showToast("Perubahan tersimpan.");
-        } else {
-          var kodeObjForPush = kodeOf(kodeId);
-          var appsUrl = (S.settings.appsScriptUrl||"").trim();
-
-          if(appsUrl && kodeObjForPush){
-            var submitBtn = $("submitSuratModal");
-            var originalBtnLabel = submitBtn.textContent;
-            submitBtn.textContent = "Menerbitkan...";
-            submitBtn.disabled = true;
-            requestNomorFromSheet(kodeObjForPush.kode, tujuan, tanggal, perihal, function(hasil){
-              if(hasil.ok){
-                finalizeNewSurat(hasil.urut, kodeId, hasil.nomor, tujuan, perihal, tanggal, dibuatOleh,
-                  "Nomor "+hasil.nomor+" berhasil diterbitkan & tersinkron ke sheet.");
-              } else {
-                S.counter += 1;
-                finalizeNewSurat(S.counter, kodeId, null, tujuan, perihal, tanggal, dibuatOleh,
-                  "Nomor diterbitkan secara lokal (gagal terhubung ke sheet). Sinkronkan manual nanti.");
-              }
-            });
-          } else {
-            S.counter += 1;
-            finalizeNewSurat(S.counter, kodeId, null, tujuan, perihal, tanggal, dibuatOleh);
-          }
-        }
-      };
-    }
-
-    if(ui.modal === "confirm"){
-      var onYes = ui.confirmOnYes;
-      $("confirmNoBtn").onclick = function(){ ui.modal=null; ui.confirmOnYes=null; render(); };
-      $("confirmOverlay").onclick = function(e){ if(e.target.id==="confirmOverlay"){ ui.modal=null; ui.confirmOnYes=null; render(); } };
-      $("confirmYesBtn").onclick = function(){
-        ui.modal=null; ui.confirmOnYes=null;
-        if(onYes) onYes();
-      };
-    }
-
-    if(ui.modal === "notice"){
-      $("noticeCloseBtn").onclick = function(){ ui.modal=null; render(); };
-      $("noticeCloseBtn2").onclick = function(){ ui.modal=null; render(); };
-      $("noticeOverlay").onclick = function(e){ if(e.target.id==="noticeOverlay"){ ui.modal=null; render(); } };
-    }
-
-    if(ui.modal === "detail"){
-      $("closeDetailModal").onclick = closeDetailModal;
-      $("closeDetailModal2").onclick = closeDetailModal;
-      $("detailOverlay").onclick = function(e){ if(e.target.id==="detailOverlay") closeDetailModal(); };
-      $("detailEditBtn").onclick = function(){
-        var id = ui.detailId;
-        ui.modal = "surat"; ui.editingId = id; ui.formKodeId = null;
-        render();
-      };
-    }
-
-    if(ui.modal === "kelola"){
-      $("closeKelolaModal").onclick = closeKelolaModal;
-      $("kelolaOverlay").onclick = function(e){ if(e.target.id==="kelolaOverlay") closeKelolaModal(); };
-
-      document.querySelectorAll("[data-nonaktif]").forEach(function(btn){
-        btn.onclick = function(){
-          var id = Number(btn.getAttribute("data-nonaktif"));
-          kodeOf(id).aktif = false;
-          save(S); render();
-        };
-      });
-      document.querySelectorAll("[data-aktifkan]").forEach(function(btn){
-        btn.onclick = function(){
-          var id = Number(btn.getAttribute("data-aktifkan"));
-          kodeOf(id).aktif = true;
-          save(S); render();
-        };
-      });
-
-      $("addKodeBtn").onclick = function(){
-        var kode = $("newKodeKode").value.trim();
-        var nama = $("newKodeNama").value.trim();
-        var err = $("kodeError");
-        if(!kode || !nama){ err.textContent="Isi kode dan nama."; err.style.display="block"; return; }
-        var dup = S.kodeList.some(function(k){ return k.kode.toLowerCase()===kode.toLowerCase(); });
-        if(dup){ err.textContent="Kode ini sudah ada."; err.style.display="block"; return; }
-        var warnaCycle = ["blue","green","emerald","amber","violet","red","slate"];
-        S.kodeList.push({ id:uid(), kode:kode, nama:nama, warna:warnaCycle[S.kodeList.length % warnaCycle.length], aktif:true });
-        save(S);
-        showToast("Kode "+kode+" ditambahkan.");
-      };
-
-      $("saveSettingsBtn").onclick = function(){
-        var instansi = $("setInstansi").value.trim() || "W.9";
-        var digit = Math.max(1, Math.min(6, Number($("setDigit").value) || 3));
-        S.settings.instansiKode = instansi;
-        S.settings.digit = digit;
-        save(S);
-        showToast("Pengaturan disimpan.");
-      };
-
-      $("saveSheetUrlBtn").onclick = function(){
-        var url = $("setSheetUrl").value.trim();
-        var err = $("sheetUrlError");
-        err.style.display = "none";
-        if(url && !/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
-          err.textContent = "Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...";
-          err.style.display = "block";
-          return;
-        }
-        S.settings.googleSheetUrl = url;
-        save(S);
-        showToast(url ? "Tautan Google Sheet disimpan." : "Tautan Google Sheet dikosongkan.");
-      };
-
-      $("testRefreshBtn").onclick = function(){
-        var url = $("setSheetUrl").value.trim();
-        var err = $("sheetUrlError");
-        err.style.display = "none";
-        if(!url){ err.textContent="Isi tautan Google Sheet terlebih dahulu."; err.style.display="block"; return; }
-        if(!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
-          err.textContent = "Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...";
-          err.style.display = "block";
-          return;
-        }
-        S.settings.googleSheetUrl = url;
-        save(S);
-        closeKelolaModal();
-        refreshFromGoogleSheet(null);
-      };
-
-      $("changePwBtn").onclick = function(){
-        var oldPw = $("pwOld").value;
-        var newPw = $("pwNew").value;
-        var confirmPw = $("pwNewConfirm").value;
-        var err = $("pwError");
-        err.style.display = "none";
-        if(simpleHash(oldPw) !== getStoredPwHash()){
-          err.textContent = "Kata sandi saat ini salah."; err.style.display="block"; return;
-        }
-        if(newPw.length < 4){
-          err.textContent = "Kata sandi baru minimal 4 karakter."; err.style.display="block"; return;
-        }
-        if(newPw !== confirmPw){
-          err.textContent = "Konfirmasi kata sandi baru tidak cocok."; err.style.display="block"; return;
-        }
-        setStoredPwHash(simpleHash(newPw));
-        $("pwOld").value = ""; $("pwNew").value = ""; $("pwNewConfirm").value = "";
-        showToast("Kata sandi berhasil diubah.");
-      };
-
-      $("toggleAppsScript").onclick = function(){ ui.appsScriptExpanded = !ui.appsScriptExpanded; render(); };
-
-      if(ui.appsScriptExpanded){
-        $("copyAppsScriptBtn").onclick = function(){
-          var ta = $("appsScriptTextarea");
-          var btn = $("copyAppsScriptBtn");
-          function done(){ var orig=btn.textContent; btn.textContent="Tersalin ✓"; setTimeout(function(){ btn.textContent=orig; }, 1800); }
-          if(navigator.clipboard && navigator.clipboard.writeText){
-            navigator.clipboard.writeText(APPS_SCRIPT_SNIPPET).then(done).catch(function(){ ta.select(); document.execCommand("copy"); done(); });
-          } else {
-            ta.select(); document.execCommand("copy"); done();
-          }
-        };
-
-        $("saveAppsScriptBtn").onclick = function(){
-          var url = $("setAppsScriptUrl").value.trim();
-          var err = $("appsScriptError");
-          err.style.display = "none";
-          if(url && !/^https:\/\/script\.google\.com\/macros\//.test(url)){
-            err.textContent = "URL sepertinya bukan URL Web App Apps Script. Harus diawali https://script.google.com/macros/...";
-            err.style.display = "block";
-            return;
-          }
-          S.settings.appsScriptUrl = url;
-          save(S);
-          showToast(url ? "URL tulis-balik disimpan." : "URL tulis-balik dikosongkan.");
-        };
-      }
-
-      $("btnHapusSemua").onclick = function(){ ui.modal = "hapusSemua"; render(); };
-    }
-
-    if(ui.modal === "hapusSemua"){
-      $("closeHapusSemuaModal").onclick = closeHapusSemuaModal;
-      $("cancelHapusSemuaBtn").onclick = closeHapusSemuaModal;
-      $("hapusSemuaOverlay").onclick = function(e){ if(e.target.id==="hapusSemuaOverlay") closeHapusSemuaModal(); };
-
-      var hapusInput = $("hapusSemuaConfirmText");
-      var hapusBtn = $("confirmHapusSemuaBtn");
-      hapusInput.focus();
-      hapusInput.oninput = function(){
-        var match = hapusInput.value.trim().toUpperCase() === "HAPUS SEMUA";
-        hapusBtn.disabled = !match;
-        hapusBtn.style.background = match ? "var(--red)" : "var(--ink-100)";
-        hapusBtn.style.color = match ? "#fff" : "var(--ink-400)";
-        hapusBtn.style.cursor = match ? "pointer" : "not-allowed";
-      };
-      hapusBtn.onclick = function(){
-        if(hapusInput.value.trim().toUpperCase() !== "HAPUS SEMUA") return;
-        S.surats = [];
-        S.counter = 0;
-        resortSurats();
-        ui.page = 1;
-        ui.modal = null;
-        save(S);
-        showToast("Semua data surat telah dihapus.");
-      };
-    }
   }
 
-  /**
-   * Menyelesaikan pembuatan surat baru: simpan lokal, tutup modal, tampilkan
-   * toast. Dipakai baik saat nomor berhasil didapat dari Apps Script
-   * (nomorOverride terisi teks persis dari sheet) maupun saat memakai
-   * penomoran lokal biasa (nomorOverride null, dihitung dari kode+urut).
-   */
-  function finalizeNewSurat(urut, kodeId, nomorOverride, tujuan, perihal, tanggal, dibuatOleh, customMsg){
-    if(urut > S.counter) S.counter = urut;
-    var newSurat = { id:uid(), urut:urut, kodeId:kodeId, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:dibuatOleh, sumber:"manual", nomorOverride: nomorOverride||null };
-    S.surats.unshift(newSurat);
-    resortSurats();
-    save(S);
-    ui.modal=null;
-    ui.page=1;
-    showToast(customMsg || ("Nomor "+displayNomor(newSurat)+" berhasil diterbitkan."));
-  }
+  function openDetail(id){ setDetailId(id); setModal("detail"); }
+  function closeDetail(){ setModal(null); setDetailId(null); }
 
-  function closeSuratModal(){ ui.modal=null; ui.editingId=null; ui.formKodeId=null; render(); }
-  function closeKelolaModal(){ ui.modal=null; render(); }
-  function closeDetailModal(){ ui.modal=null; ui.detailId=null; render(); }
-  function closeHapusSemuaModal(){ ui.modal=null; render(); }
+  /* ---------- Ekspor / cetak ---------- */
 
-  function exportCsv(){
-    var rows = filteredSurats();
-    var header = ["No","Nomor Surat","Tanggal","Tujuan","Perihal","Kode Klasifikasi"];
-    var lines = [header.join(",")];
-    rows.forEach(function(s){
-      var k = kodeOf(s.kodeId);
-      var cells = [
-        s.urut,
-        displayNomor(s),
-        fmtTanggal(s.tanggal),
-        s.tujuan||"",
-        s.perihal,
-        k?k.kode:""
-      ].map(function(c){
-        var v = String(c).replace(/"/g,'""');
-        return /[",\n]/.test(v) ? '"'+v+'"' : v;
-      });
-      lines.push(cells.join(","));
-    });
-    var blob = new Blob(["\uFEFF"+lines.join("\r\n")], { type:"text/csv;charset=utf-8;" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url; a.download = "simoris-rekap-"+isoToday(0)+".csv";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
+  function doExportExcel(){ if(!exportExcelFile(sRef.current, filtered)) showNotice("Pustaka Belum Siap","Pustaka Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman."); }
+  function doExportCsv(){ exportCsvFile(sRef.current, filtered); }
+  function doExportPdf(){ if(!exportPdfFile(sRef.current, filtered)) showNotice("Pustaka Belum Siap","Pustaka PDF belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman."); }
+  function doPrint(){ window.print(); }
+  function doBackupJson(){ exportJsonBackup(sRef.current); }
 
-  function exportExcel(){
-    if(typeof XLSX === "undefined"){
-      showNotice("Pustaka Belum Siap", "Pustaka Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
-      return;
+  /* ---------- Impor ---------- */
+
+  function handleFileChange(e){
+    const file = e.target.files[0];
+    if(!file){ return; }
+    const name = file.name.toLowerCase();
+    if(/\.(xlsx|xls)$/.test(name)){
+      const reader = new FileReader();
+      reader.onload = function(ev){ handleImportedExcel(ev.target.result); };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = function(ev){ handleImportedText(ev.target.result, file.name); };
+      reader.readAsText(file, "UTF-8");
     }
-    var rows = filteredSurats().slice().sort(function(a,b){ return a.urut - b.urut; });
-    var data = [["NO","TUJUAN SURAT","TANGGAL SURAT","PERIHAL","NOMOR SURAT KELUAR / SURAT PERINTAH"]];
-    rows.forEach(function(s, idx){
-      data.push([ idx+1, s.tujuan||"", fmtTanggal(s.tanggal), s.perihal, displayNomor(s) ]);
-    });
-    var ws = XLSX.utils.aoa_to_sheet(data);
-    ws['!cols'] = [{wch:5},{wch:22},{wch:18},{wch:42},{wch:30}];
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "SIMORIS");
-    XLSX.writeFile(wb, "simoris-rekap-"+isoToday(0)+".xlsx");
-  }
-
-  function exportPdf(){
-    if(typeof window.jspdf === "undefined"){
-      showNotice("Pustaka Belum Siap", "Pustaka PDF belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
-      return;
-    }
-    var rows = filteredSurats().slice().sort(function(a,b){ return a.urut - b.urut; });
-    var body = rows.map(function(s, idx){
-      return [ idx+1, s.tujuan||"-", fmtTanggal(s.tanggal), s.perihal, displayNomor(s) ];
-    });
-    var doc = new window.jspdf.jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
-    doc.setFontSize(13);
-    doc.text("SIMORIS - Rekap Surat", 40, 34);
-    doc.setFontSize(9);
-    doc.setTextColor(120);
-    doc.text("Diunduh "+fmtTanggal(isoToday(0))+" - "+rows.length+" surat", 40, 48);
-    doc.autoTable({
-      startY: 60,
-      head: [["No","Tujuan Surat","Tanggal Surat","Perihal","Nomor Surat"]],
-      body: body,
-      styles: { fontSize:9, cellPadding:6 },
-      headStyles: { fillColor:[20,38,74], textColor:255, fontStyle:"bold" },
-      alternateRowStyles: { fillColor:[248,246,241] },
-      columnStyles: { 0:{ cellWidth:30 } }
-    });
-    doc.save("simoris-rekap-"+isoToday(0)+".pdf");
-  }
-
-  function exportJson(){
-    var blob = new Blob([JSON.stringify(S, null, 2)], { type:"application/json" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url; a.download = "simoris-cadangan-"+isoToday(0)+".json";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  var BULAN_ID = {
-    "januari":0,"februari":1,"maret":2,"april":3,"mei":4,"juni":5,
-    "juli":6,"agustus":7,"september":8,"oktober":9,"november":10,"desember":11
-  };
-
-  function parseTanggalIndo(str){
-    if(!str) return null;
-    str = String(str).trim();
-
-    // format ISO: 2026-01-06
-    var iso = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-    if(iso) return iso[1]+"-"+pad2(iso[2])+"-"+pad2(iso[3]);
-
-    // format dd/mm/yyyy atau dd-mm-yyyy
-    var slash = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if(slash) return slash[3]+"-"+pad2(slash[1])+"-"+pad2(slash[2]);
-
-    // format "6 Januari 2026"
-    var indo = str.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
-    if(indo){
-      var bulanIdx = BULAN_ID[indo[2].toLowerCase()];
-      if(bulanIdx !== undefined) return indo[3]+"-"+pad2(bulanIdx+1)+"-"+pad2(indo[1]);
-    }
-    return null;
-  }
-  function pad2(n){ n = String(n); return n.length<2 ? "0"+n : n; }
-
-  function parseCsv(text){
-    // parser CSV sederhana yang menangani tanda kutip
-    var rows = [];
-    var i=0, field="", row=[], inQuotes=false;
-    text = text.replace(/^\uFEFF/, "");
-    while(i < text.length){
-      var c = text[i];
-      if(inQuotes){
-        if(c === '"'){
-          if(text[i+1] === '"'){ field += '"'; i+=2; continue; }
-          inQuotes = false; i++; continue;
-        }
-        field += c; i++; continue;
-      } else {
-        if(c === '"'){ inQuotes = true; i++; continue; }
-        if(c === ','){ row.push(field); field=""; i++; continue; }
-        if(c === '\r'){ i++; continue; }
-        if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=""; i++; continue; }
-        field += c; i++; continue;
-      }
-    }
-    if(field.length || row.length){ row.push(field); rows.push(row); }
-    return rows.filter(function(r){ return r.some(function(c){ return String(c).trim() !== ""; }); });
-  }
-
-  function colIndex(header, keywords){
-    for(var i=0;i<header.length;i++){
-      var h = header[i].toLowerCase();
-      for(var j=0;j<keywords.length;j++){
-        if(h.indexOf(keywords[j]) > -1) return i;
-      }
-    }
-    return -1;
-  }
-
-  function ensureKode(kodeStr){
-    var found = S.kodeList.filter(function(k){ return k.kode.toLowerCase()===kodeStr.toLowerCase(); })[0];
-    if(found) return found;
-    var warnaCycle = ["blue","green","emerald","amber","violet","red","slate"];
-    var k = { id:uid(), kode:kodeStr, nama:"Impor otomatis", warna:warnaCycle[S.kodeList.length % warnaCycle.length], aktif:true };
-    S.kodeList.push(k);
-    return k;
-  }
-
-  /**
-   * Mendeteksi baris header (mencari kolom "Perihal" di 10 baris pertama,
-   * supaya baris judul tambahan di atas tabel tidak mengganggu) dan indeks
-   * tiap kolom yang relevan. Dipakai bersama oleh impor file DAN sinkron
-   * Google Sheet supaya keduanya konsisten.
-   */
-  function detectColumns(rows){
-    var headerIdx = 0;
-    for(var hi=0; hi<Math.min(rows.length,10); hi++){
-      if(colIndex(rows[hi], ["perihal"]) > -1){ headerIdx = hi; break; }
-    }
-    var header = rows[headerIdx];
-    return {
-      headerIdx: headerIdx,
-      idxTujuan: colIndex(header, ["tujuan"]),
-      idxTanggal: colIndex(header, ["tanggal"]),
-      idxPerihal: colIndex(header, ["perihal"]),
-      idxNomor: colIndex(header, ["nomor surat","nomor","no surat","no."]),
-      idxKode: colIndex(header, ["kode klasifikasi","klasifikasi","kode"])
-    };
-  }
-
-  function parseRowsToSurats(rows, cols){
-    var out = [];
-    for(var r=cols.headerIdx+1; r<rows.length; r++){
-      var c = rows[r];
-      var perihal = cols.idxPerihal>-1 ? String(c[cols.idxPerihal]||"").trim() : "";
-      if(!perihal) continue;
-      out.push({
-        tujuan: cols.idxTujuan>-1 ? String(c[cols.idxTujuan]||"").trim() : "",
-        tanggalRaw: cols.idxTanggal>-1 ? String(c[cols.idxTanggal]||"").trim() : "",
-        perihal: perihal,
-        nomorRaw: cols.idxNomor>-1 ? String(c[cols.idxNomor]||"").trim() : "",
-        kodeExplicit: cols.idxKode>-1 ? String(c[cols.idxKode]||"").trim() : ""
-      });
-    }
-    return out;
-  }
-
-  // Mengurai teks nomor surat pola "INSTANSI-KODE-URUT" (mis. W.9-KP.10.02-001)
-  // menjadi { urut, kodeStr }. Mengembalikan null kalau tidak sesuai pola.
-  function parseNomorRaw(nomorRaw){
-    if(!nomorRaw) return null;
-    var parts = nomorRaw.split("-");
-    if(parts.length >= 3){
-      var urutStr = parts[parts.length-1];
-      var kodeStr = parts.slice(1, parts.length-1).join("-");
-      if(/^\d+$/.test(urutStr) && kodeStr){
-        return { urut: parseInt(urutStr,10), kodeStr: kodeStr };
-      }
-    }
-    return null;
-  }
-
-  function extractSheetId(url){
-    var m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-    return m ? m[1] : null;
-  }
-  function extractGid(url){
-    var m = url.match(/[#&?]gid=([0-9]+)/);
-    return m ? m[1] : "0";
-  }
-
-  /**
-   * Menerima tautan Google Sheets APA SAJA — tautan "Bagikan" biasa
-   * (…/edit?usp=sharing), tautan dengan #gid=…, atau tautan CSV langsung
-   * hasil "Publikasikan ke web" — dan mengembalikan daftar kandidat URL
-   * CSV yang bisa dicoba satu per satu. Ini menghindarkan pengguna dari
-   * harus mempublikasikan/mengubah pengaturan sheet master setiap kali.
-   */
-  function buildCandidateCsvUrls(rawUrl){
-    var url = rawUrl.trim();
-    if(/output=csv|format=csv|tqx=out:csv/.test(url)){
-      return [url];
-    }
-    var id = extractSheetId(url);
-    if(!id) return [];
-    var gid = extractGid(url);
-    return [
-      "https://docs.google.com/spreadsheets/d/"+id+"/export?format=csv&gid="+gid,
-      "https://docs.google.com/spreadsheets/d/"+id+"/gviz/tq?tqx=out:csv&gid="+gid
-    ];
-  }
-
-  function tryFetchCsv(urls, idx, timeoutMs, lastErr){
-    if(idx >= urls.length){
-      return Promise.reject(lastErr || new Error("Semua percobaan pengambilan data gagal."));
-    }
-    var hasAbort = typeof AbortController !== "undefined";
-    var controller = hasAbort ? new AbortController() : null;
-    var timer = controller ? setTimeout(function(){ controller.abort(); }, timeoutMs) : null;
-
-    return fetch(urls[idx], { cache:"no-store", signal: controller ? controller.signal : undefined })
-      .then(function(res){
-        if(timer) clearTimeout(timer);
-        if(!res.ok) throw new Error("HTTP "+res.status);
-        return res.text();
-      })
-      .then(function(text){
-        if(/^\s*<(!doctype|html)/i.test(text) || /accounts\.google\.com\/ServiceLogin/i.test(text)){
-          throw new Error("Sheet mengembalikan halaman login/HTML, bukan data — sheet belum bisa diakses publik.");
-        }
-        if(!text || !text.trim()){
-          throw new Error("Sheet mengembalikan data kosong.");
-        }
-        return text;
-      })
-      .catch(function(err){
-        if(timer) clearTimeout(timer);
-        return tryFetchCsv(urls, idx+1, timeoutMs, err);
-      });
-  }
-
-  /**
-   * Meminta Apps Script menerbitkan nomor urut BERIKUTNYA dan menuliskannya
-   * langsung ke Google Sheet — dipakai supaya kalau ada beberapa perangkat
-   * menerbitkan surat pada saat bersamaan, yang menentukan angka final
-   * adalah Apps Script (dengan LockService, satu per satu bergiliran),
-   * bukan masing-masing perangkat menebak sendiri. Ini mencegah dua
-   * perangkat kebagian nomor yang sama.
-   *
-   * callback(hasil) dipanggil dengan { ok:true, urut, nomor } kalau
-   * berhasil, atau { ok:false } kalau gagal/timeout/URL belum diatur —
-   * pemanggil WAJIB punya jalur cadangan (nomor lokal) untuk kasus gagal,
-   * supaya SIMORIS tetap bisa dipakai walau sedang offline.
-   */
-  function requestNomorFromSheet(kodeStr, tujuan, tanggal, perihal, callback){
-    var url = (S.settings.appsScriptUrl||"").trim();
-    if(!url){ callback({ ok:false }); return; }
-
-    var qs = "kode="+encodeURIComponent(kodeStr)+
-      "&instansi="+encodeURIComponent(S.settings.instansiKode)+
-      "&digit="+encodeURIComponent(S.settings.digit)+
-      "&tujuan="+encodeURIComponent(tujuan||"")+
-      "&tanggal="+encodeURIComponent(fmtTanggal(tanggal))+
-      "&perihal="+encodeURIComponent(perihal||"");
-
-    var hasAbort = typeof AbortController !== "undefined";
-    var controller = hasAbort ? new AbortController() : null;
-    var timer = controller ? setTimeout(function(){ controller.abort(); }, 12000) : null;
-
-    fetch(url + (url.indexOf("?")>-1 ? "&" : "?") + qs, { method:"GET", signal: controller ? controller.signal : undefined })
-      .then(function(res){
-        if(timer) clearTimeout(timer);
-        if(!res.ok) throw new Error("HTTP "+res.status);
-        return res.json();
-      })
-      .then(function(data){
-        if(!data || !data.ok) throw new Error("respons tidak valid");
-        callback({ ok:true, urut:data.urut, nomor:data.nomor });
-      })
-      .catch(function(){
-        if(timer) clearTimeout(timer);
-        callback({ ok:false });
-      });
-  }
-
-  function refreshFromGoogleSheet(btn){
-    var raw = (S.settings.googleSheetUrl||"").trim();
-    if(!raw){
-      showNotice("Tautan Belum Diatur", 'Tautan Google Sheet belum diatur.\n\nBuka "Kelola Kode" → bagian "Sumber data Google Sheet" untuk mengaturnya terlebih dahulu.');
-      ui.modal = "kelola";
-      render();
-      return;
-    }
-
-    var candidates = buildCandidateCsvUrls(raw);
-    if(!candidates.length){
-      showNotice("Tautan Tidak Dikenali", 'Tautan Google Sheet tidak dikenali.\n\nTempel tautan "Bagikan" biasa dari Google Sheets, contoh:\nhttps://docs.google.com/spreadsheets/d/XXXXXXXX/edit');
-      return;
-    }
-
-    var originalLabel = btn ? btn.textContent : "";
-    if(btn){ btn.textContent = "Memuat..."; btn.disabled = true; }
-
-    tryFetchCsv(candidates, 0, 15000, null)
-      .then(function(text){
-        syncFromGoogleSheetRows(parseCsv(text));
-      })
-      .catch(function(err){
-        var isTimeout = err && err.name === "AbortError";
-        showNotice("Gagal Refresh", 'Gagal mengambil data dari Google Sheet'+(isTimeout ? ' (waktu tunggu habis, koneksi terlalu lambat)' : '')+'.\n\n'+
-          'Kemungkinan penyebab:\n'+
-          '1. Sheet belum dibagikan sebagai "Siapa saja yang memiliki tautan → Dapat melihat" (klik Bagikan di Google Sheets, lalu ubah akses umum).\n'+
-          '2. Tautan yang ditempel salah, sudah tidak berlaku, atau bukan tautan Google Sheets.\n'+
-          '3. Perangkat ini sedang tidak terhubung ke internet.\n\n'+
-          'Detail teknis: '+(err && err.message ? err.message : String(err)));
-      })
-      .then(function(){
-        if(btn){ btn.textContent = originalLabel; btn.disabled = false; }
-      });
+    e.target.value = "";
   }
 
   function handleImportedText(text, filename){
-    var isJson = /\.json$/i.test(filename) || /^\s*\{/.test(text);
-    if(isJson){ importJsonBackup(text); }
-    else { importRowsLegacy(parseCsv(text)); }
+    const isJson = /\.json$/i.test(filename) || /^\s*\{/.test(text);
+    if(isJson) importJsonBackup(text);
+    else importRowsLegacy(parseCsv(text));
   }
-
-  function handleImportedExcel(arrayBuffer){
-    if(typeof XLSX === "undefined"){
-      showNotice("Pustaka Belum Siap", "Pustaka pembaca Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman.");
-      return;
-    }
-    var wb;
-    try{ wb = XLSX.read(arrayBuffer, { type:"array", cellDates:true }); }
-    catch(e){ showNotice("File Tidak Terbaca", "File Excel tidak dapat dibaca. Pastikan file berformat .xlsx atau .xls yang valid."); return; }
-
-    var ws = wb.Sheets[wb.SheetNames[0]];
-    var raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
-    var rows = raw.map(function(r){ return r.map(excelCellToStr); })
-                  .filter(function(r){ return r.some(function(c){ return String(c).trim() !== ""; }); });
+  function handleImportedExcel(buf){
+    if(typeof XLSX === "undefined"){ showNotice("Pustaka Belum Siap","Pustaka pembaca Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman."); return; }
+    let wb;
+    try{ wb = XLSX.read(buf, { type:"array", cellDates:true }); }
+    catch(e){ showNotice("File Tidak Terbaca","File Excel tidak dapat dibaca. Pastikan file berformat .xlsx atau .xls yang valid."); return; }
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
+    const rows = raw.map(function(r){ return r.map(excelCellToStr); }).filter(function(r){ return r.some(function(c){ return String(c).trim()!==""; }); });
     importRowsLegacy(rows);
   }
-
-  function excelCellToStr(v){
-    if(v instanceof Date && !isNaN(v)){
-      return v.getFullYear()+"-"+pad2(v.getMonth()+1)+"-"+pad2(v.getDate());
-    }
-    if(v === null || v === undefined) return "";
-    return String(v).trim();
-  }
-
   function importJsonBackup(text){
-    var data;
-    try{ data = JSON.parse(text); }
-    catch(e){ showNotice("File Tidak Valid", "File JSON tidak valid."); return; }
+    let data;
+    try{ data = JSON.parse(text); }catch(e){ showNotice("File Tidak Valid","File JSON tidak valid."); return; }
     if(!data || !Array.isArray(data.surats) || !Array.isArray(data.kodeList)){
-      showNotice("Format Tidak Dikenali", 'Struktur file JSON tidak dikenali. Gunakan file hasil tombol "Cadangkan".'); return;
+      showNotice("Format Tidak Dikenali",'Struktur file JSON tidak dikenali. Gunakan file hasil tombol "Cadangkan".'); return;
     }
-    showConfirm("Menimpa seluruh data saat ini ("+S.surats.length+" surat) dengan isi file cadangan ("+data.surats.length+" surat)?", function(){
-      S = data;
-      resortSurats();
-      ui.page = 1;
-      save(S);
+    showConfirm("Menimpa seluruh data saat ini ("+sRef.current.surats.length+" surat) dengan isi file cadangan ("+data.surats.length+" surat)?", function(){
+      if(!data.settings) data.settings = { instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" };
+      data.surats.sort(function(a,b){ return b.urut-a.urut; });
+      setS(data);
+      setPage(1);
+      setModal(null);
       showToast("Data berhasil dipulihkan dari cadangan.");
     });
   }
-
-  /**
-   * Menerima data mentah berupa array-of-array (baris x kolom) — bisa berasal
-   * dari file CSV atau Excel (.xlsx/.xls) hasil rekap manual seperti pada
-   * spreadsheet lama: kolom TUJUAN SURAT, TANGGAL SURAT, PERIHAL, dan
-   * NOMOR SURAT KELUAR / SURAT PERINTAH. Kolom NO diabaikan (dibuat ulang
-   * otomatis). Header dicari otomatis di antara 10 baris pertama supaya
-   * baris judul tambahan di atas tabel tidak mengganggu.
-   */
   function importRowsLegacy(rows){
-    if(rows.length < 2){ showNotice("File Kosong", "File kosong atau tidak terbaca."); return; }
-
-    var cols = detectColumns(rows);
-    if(cols.idxPerihal === -1){
-      showNotice("Format Tidak Dikenali", 'Kolom "Perihal" tidak ditemukan. Pastikan file memiliki kolom Perihal seperti pada format spreadsheet sebelumnya.');
-      return;
-    }
-    var parsedRows = parseRowsToSurats(rows, cols);
-
-    var existingNomor = {};
-    S.surats.forEach(function(s){ existingNomor[displayNomor(s)] = true; });
-
-    // Pra-pindai seluruh baris untuk mencari nomor urut eksplisit tertinggi
-    // di file ini, supaya baris tanpa nomor (diberi nomor otomatis) TIDAK
-    // pernah bentrok dengan nomor eksplisit yang justru muncul belakangan
-    // di file yang sama.
-    parsedRows.forEach(function(pr){
-      var parsed = parseNomorRaw(pr.nomorRaw);
-      if(parsed && parsed.urut > S.counter) S.counter = parsed.urut;
-    });
-
-    var kodeUmum = null;
-    var ditambahkan = 0, dilewati = 0, maxUrutImpor = 0;
-
-    parsedRows.forEach(function(pr){
-      var tanggal = parseTanggalIndo(pr.tanggalRaw) || isoToday(0);
-      var kodeObj = null, urut = null;
-
-      var parsed = parseNomorRaw(pr.nomorRaw);
-      if(parsed){ urut = parsed.urut; kodeObj = ensureKode(parsed.kodeStr); }
-      if(!kodeObj && pr.kodeExplicit){ kodeObj = ensureKode(pr.kodeExplicit); }
-      if(!kodeObj){
-        if(!kodeUmum) kodeUmum = ensureKode("IMPOR");
-        kodeObj = kodeUmum;
-      }
-      if(urut === null){ S.counter += 1; urut = S.counter; }
-
-      var nomorFinal = pr.nomorRaw || nomorSurat(urut, kodeObj.id);
-      if(existingNomor[nomorFinal]){ dilewati++; return; }
-      existingNomor[nomorFinal] = true;
-
-      S.surats.push({
-        id:uid(), urut:urut, kodeId:kodeObj.id, tujuan:pr.tujuan, perihal:pr.perihal,
-        tanggal:tanggal, dibuatOleh:"", sumber:"manual", nomorOverride: pr.nomorRaw || null
-      });
-      ditambahkan++;
-      if(urut > maxUrutImpor) maxUrutImpor = urut;
-    });
-
-    if(maxUrutImpor > S.counter) S.counter = maxUrutImpor;
-    resortSurats();
-    ui.page = 1;
-    save(S);
-    render();
-    showToast(ditambahkan+" surat diimpor"+(dilewati?", "+dilewati+" dilewati (sudah ada)":"")+".");
+    if(rows.length < 2){ showNotice("File Kosong","File kosong atau tidak terbaca."); return; }
+    const cols = detectColumns(rows);
+    if(cols.idxPerihal === -1){ showNotice("Format Tidak Dikenali",'Kolom "Perihal" tidak ditemukan. Pastikan file memiliki kolom Perihal seperti pada format spreadsheet sebelumnya.'); return; }
+    const parsedRows = parseRowsToSurats(rows, cols);
+    let summary = null;
+    mutateS(function(draft){ summary = applyImportToDraft(draft, parsedRows); });
+    setPage(1);
+    showToast(summary.ditambahkan+" surat diimpor"+(summary.dilewati?", "+summary.dilewati+" dilewati (sudah ada)":"")+".");
   }
 
-  /**
-   * Sinkron dari Google Sheet — BERBEDA dari impor file biasa: ini
-   * MENGGANTI TOTAL seluruh data yang berasal dari sheet (bukan menambah),
-   * supaya jumlah data di SIMORIS selalu sama persis dengan jumlah baris
-   * valid di sheet saat itu — tidak pernah menumpuk atau dobel walau
-   * di-refresh berkali-kali. Data yang diterbitkan langsung dari SIMORIS
-   * (sumber:"manual") maupun hasil impor file (sumber:"manual") TIDAK
-   * disentuh oleh proses ini.
-   */
-  function syncFromGoogleSheetRows(rows){
-    if(rows.length < 2){
-      showNotice("Sheet Kosong", "Sheet tidak berisi data yang bisa disinkronkan.");
-      return;
-    }
-    var cols = detectColumns(rows);
-    if(cols.idxPerihal === -1){
-      showNotice("Format Tidak Dikenali", 'Kolom "Perihal" tidak ditemukan di sheet ini. Pastikan sheet memiliki kolom Perihal seperti pada format spreadsheet sebelumnya.');
-      return;
-    }
-    var parsedRows = parseRowsToSurats(rows, cols);
+  /* ---------- Google Sheet ---------- */
 
+  function syncFromGoogleSheetRows(rows){
+    if(rows.length < 2){ showNotice("Sheet Kosong","Sheet tidak berisi data yang bisa disinkronkan."); return; }
+    const cols = detectColumns(rows);
+    if(cols.idxPerihal === -1){ showNotice("Format Tidak Dikenali",'Kolom "Perihal" tidak ditemukan di sheet ini. Pastikan sheet memiliki kolom Perihal seperti pada format spreadsheet sebelumnya.'); return; }
+    const parsedRows = parseRowsToSurats(rows, cols);
     if(!parsedRows.length){
-      var hadSheetDataBefore = S.surats.some(function(s){ return s.sumber === "sheet"; });
-      if(hadSheetDataBefore){
-        showNotice("Refresh Dibatalkan",
-          'Sheet tampak kosong (tidak ada baris data yang valid). Untuk mencegah kehilangan data, refresh dibatalkan dan data sebelumnya TIDAK diubah.\n\nJika sheet memang sengaja dikosongkan, hapus manual lewat "Hapus Semua Data" di Kelola Kode.');
+      const hadBefore = sRef.current.surats.some(function(s){ return s.sumber==="sheet"; });
+      if(hadBefore){
+        showNotice("Refresh Dibatalkan",'Sheet tampak kosong (tidak ada baris data yang valid). Untuk mencegah kehilangan data, refresh dibatalkan dan data sebelumnya TIDAK diubah.\n\nJika sheet memang sengaja dikosongkan, hapus manual lewat "Hapus Semua Data" di Kelola Kode.');
         return;
       }
     }
-
-    var posCounter = 0;
-    var maxUrutSheet = 0;
-    var freshSheetSurats = parsedRows.map(function(pr){
-      posCounter++;
-      var tanggal = parseTanggalIndo(pr.tanggalRaw) || isoToday(0);
-      var kodeObj = null, urut = null;
-
-      var parsed = parseNomorRaw(pr.nomorRaw);
-      if(parsed){ urut = parsed.urut; kodeObj = ensureKode(parsed.kodeStr); }
-      if(!kodeObj && pr.kodeExplicit){ kodeObj = ensureKode(pr.kodeExplicit); }
-      if(!kodeObj){ kodeObj = ensureKode("SHEET"); }
-      if(urut === null){ urut = posCounter; }
-      if(urut > maxUrutSheet) maxUrutSheet = urut;
-
-      return {
-        id: uid()+posCounter,
-        urut: urut,
-        kodeId: kodeObj.id,
-        tujuan: pr.tujuan,
-        perihal: pr.perihal,
-        tanggal: tanggal,
-        dibuatOleh: "",
-        sumber: "sheet",
-        nomorOverride: pr.nomorRaw || null
-      };
+    mutateS(function(draft){
+      let posCounter=0, maxUrutSheet=0;
+      const fresh = parsedRows.map(function(pr){
+        posCounter++;
+        const tanggal = parseTanggalIndo(pr.tanggalRaw) || isoToday(0);
+        let kodeObj=null, urut=null;
+        const parsed = parseNomorRaw(pr.nomorRaw);
+        if(parsed){ urut=parsed.urut; kodeObj=ensureKodeInDraft(draft, parsed.kodeStr); }
+        if(!kodeObj && pr.kodeExplicit) kodeObj = ensureKodeInDraft(draft, pr.kodeExplicit);
+        if(!kodeObj) kodeObj = ensureKodeInDraft(draft, "SHEET");
+        if(urut===null) urut = posCounter;
+        if(urut>maxUrutSheet) maxUrutSheet=urut;
+        return { id: uid()+posCounter, urut:urut, kodeId:kodeObj.id, tujuan:pr.tujuan, perihal:pr.perihal, tanggal:tanggal, dibuatOleh:"", sumber:"sheet", nomorOverride: pr.nomorRaw||null };
+      });
+      if(maxUrutSheet > draft.counter) draft.counter = maxUrutSheet;
+      draft.surats = draft.surats.filter(function(s){ return s.sumber!=="sheet"; }).concat(fresh);
+      draft.surats.sort(function(a,b){ return b.urut-a.urut; });
     });
-
-    // Lanjutkan nomor urut SIMORIS dari nomor tertinggi yang ada di sheet
-    // (bukan mulai dari 0/ulang), supaya surat yang diterbitkan baru dari
-    // SIMORIS setelah sinkron tidak bentrok dengan nomor yang sudah dipakai
-    // di sheet — dan tidak ada nomor yang "terbuang" karena dimulai ulang.
-    if(maxUrutSheet > S.counter) S.counter = maxUrutSheet;
-
-    // GANTI TOTAL: buang seluruh data lama bersumber sheet, pasang hasil
-    // sinkron terbaru — bukan ditambahkan.
-    S.surats = S.surats.filter(function(s){ return s.sumber !== "sheet"; }).concat(freshSheetSurats);
-    resortSurats();
-    ui.page = 1;
-    save(S);
-    render();
-    showToast("Sinkron selesai — "+freshSheetSurats.length+" surat dari Google Sheet.");
+    setPage(1);
+    showToast("Sinkron selesai — "+parsedRows.length+" surat dari Google Sheet.");
   }
 
-  // ---------------- layar login ----------------
-
-  function renderLogin(errorMsg){
-    document.getElementById("app").innerHTML =
-      '<div class="login-wrap"><div class="login-card">'+
-        '<div class="login-brand">'+
-          '<div class="brand-mark">№</div>'+
-          '<h1>SIMORIS</h1>'+
-          '<p>Masuk untuk mengakses sistem penomoran surat</p>'+
-        '</div>'+
-        '<form id="loginForm">'+
-          '<div class="field"><label>Kata Sandi</label><input type="password" id="loginPw" autofocus placeholder="Masukkan kata sandi" /></div>'+
-          (errorMsg ? '<p class="error-text" style="margin-bottom:14px">'+esc(errorMsg)+'</p>' : '')+
-          '<button type="submit" class="btn-dark">Masuk</button>'+
-        '</form>'+
-      '</div></div>';
-
-    var form = document.getElementById("loginForm");
-    var pwInput = document.getElementById("loginPw");
-    pwInput.focus();
-    form.onsubmit = function(e){
-      e.preventDefault();
-      if(simpleHash(pwInput.value) === getStoredPwHash()){
-        setAuthed(true);
-        render();
-      } else {
-        renderLogin("Kata sandi salah. Coba lagi.");
-      }
-    };
+  async function handleRefreshSheet(overrideUrl){
+    const raw = (overrideUrl != null ? overrideUrl : (sRef.current.settings.googleSheetUrl||"")).trim();
+    if(!raw){
+      showNotice("Tautan Belum Diatur",'Tautan Google Sheet belum diatur.\n\nBuka "Kelola Kode" → bagian "Sumber data Google Sheet" untuk mengaturnya terlebih dahulu.');
+      setModal("kelola");
+      return;
+    }
+    const candidates = buildCandidateCsvUrls(raw);
+    if(!candidates.length){ showNotice("Tautan Tidak Dikenali",'Tautan Google Sheet tidak dikenali.\n\nTempel tautan "Bagikan" biasa dari Google Sheets, contoh:\nhttps://docs.google.com/spreadsheets/d/XXXXXXXX/edit'); return; }
+    setRefreshing(true);
+    try{
+      const text = await tryFetchCsv(candidates, 15000);
+      syncFromGoogleSheetRows(parseCsv(text));
+    }catch(err){
+      const isTimeout = err && err.name === "AbortError";
+      showNotice("Gagal Refresh",'Gagal mengambil data dari Google Sheet'+(isTimeout?' (waktu tunggu habis, koneksi terlalu lambat)':'')+'.\n\n'+
+        'Kemungkinan penyebab:\n'+
+        '1. Sheet belum dibagikan sebagai "Siapa saja yang memiliki tautan → Dapat melihat" (klik Bagikan di Google Sheets, lalu ubah akses umum).\n'+
+        '2. Tautan yang ditempel salah, sudah tidak berlaku, atau bukan tautan Google Sheets.\n'+
+        '3. Perangkat ini sedang tidak terhubung ke internet.\n\n'+
+        'Detail teknis: '+(err && err.message ? err.message : String(err)));
+    }finally{
+      setRefreshing(false);
+    }
   }
 
-  if(isAuthed()){
-    render();
-  } else {
-    renderLogin();
+  /* ---------- Hapus semua ---------- */
+
+  function confirmHapusSemua(){
+    mutateS(function(draft){ draft.surats = []; draft.counter = 0; });
+    setModal(null);
+    showToast("Semua data surat telah dihapus.");
   }
-})();
+
+  /* ---------- Logout ---------- */
+
+  function handleLogout(){
+    showConfirm("Keluar dari SIMORIS? Anda perlu memasukkan kata sandi lagi untuk membuka kembali.", function(){
+      setAuthedStorage(false);
+      setAuthed(false);
+      setModal(null);
+    });
+  }
+
+  if(!authed) return <LoginScreen onSuccess={function(){ setAuthed(true); }}/>;
+
+  const paginationProps = {
+    page: safePage, totalPages: totalPages, total: filtered.length, pageSize: pageSize, start: start,
+    onPrev: function(){ setPage(Math.max(1, safePage-1)); },
+    onNext: function(){ setPage(safePage+1); },
+    onPage: function(n){ setPage(n); },
+    onPageSize: function(n){ setPageSize(n); setPage(1); }
+  };
+
+  return (
+    <div className="paper-texture" style={{minHeight:"100vh"}}>
+      <Header count={S.surats.length} onKelola={function(){ setModal("kelola"); }} onTambah={openTambah} onLogout={handleLogout}/>
+      <main className="wrap">
+        <Toolbar
+          search={search} onSearch={function(v){ setSearch(v); setPage(1); }}
+          kodeFilter={kodeFilter} onKodeFilter={function(v){ setKodeFilter(v); setPage(1); }}
+          aktifKodeList={aktifKode(S)}
+          onRefreshSheet={function(){ handleRefreshSheet(); }} refreshing={refreshing}
+          onImportClick={function(){ fileInputRef.current && fileInputRef.current.click(); }}
+          fileInputRef={fileInputRef} onFileChange={handleFileChange}
+          downloadMenuOpen={downloadMenuOpen} setDownloadMenuOpen={setDownloadMenuOpen}
+          onExportExcel={doExportExcel} onExportCsv={doExportCsv} onExportPdf={doExportPdf} onPrint={doPrint} onBackupJson={doBackupJson}
+        />
+        <Banner/>
+        <SuratTable
+          S={S} rows={rows} pageInfo={{ total: filtered.length }}
+          onRowClick={openDetail} onEdit={openEdit} onDelete={handleDelete}
+          paginationProps={paginationProps}
+        />
+      </main>
+
+      <SuratModal open={modal==="surat"} editing={editingSurat} S={S} onClose={closeSuratModal} onSubmit={handleSubmitSurat} submitting={submittingSurat}/>
+      <KelolaModal
+        open={modal==="kelola"} S={S} onClose={function(){ setModal(null); }} mutateS={mutateS}
+        showToast={showToast} showNotice={showNotice} showConfirm={showConfirm}
+        onOpenHapusSemua={function(){ setModal("hapusSemua"); }}
+        onTestRefresh={function(url){ handleRefreshSheet(url); }}
+      />
+      <DetailModal open={modal==="detail"} surat={detailSurat} S={S} onClose={closeDetail} onEdit={function(id){ setEditingId(id); setModal("surat"); }}/>
+      <ConfirmModal open={modal==="confirm"} message={confirmMsg} onYes={function(){ setModal(null); if(confirmAction) confirmAction(); }} onNo={function(){ setModal(null); setConfirmAction(null); }}/>
+      <NoticeModal open={modal==="notice"} title={noticeTitle} message={noticeMsg} onClose={function(){ setModal(null); }}/>
+      <HapusSemuaModal open={modal==="hapusSemua"} count={S.surats.length} onClose={function(){ setModal(null); }} onConfirm={confirmHapusSemua}/>
+
+      <Toast message={toast}/>
+      <footer className="app-footer">SIMORIS · data tersimpan di peramban perangkat ini<br/>Dibuat oleh IT Pokja SDM</footer>
+    </div>
+  );
+}
+
+function isoAuthedInit(){ return isAuthedStorage(); }
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App/>);
 </script>
 </body>
 </html>
