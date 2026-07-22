@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SIMORIS — Sistem Penomoran Surat Otomatis</title>
 
-<!-- Font: Fraunces (display, untuk identitas "surat resmi") + Inter (UI) + JetBrains Mono (nomor surat) -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<!-- Excel (xlsx) & PDF (jspdf) SENGAJA TIDAK dimuat di sini — baru diambil dari CDN saat
+     tombol Unduh Excel/PDF benar-benar diklik (lazy-load), supaya halaman pertama kali
+     dibuka jauh lebih ringan/cepat, terutama di PC spek rendah atau koneksi lambat. -->
+<!-- Google Fonts SENGAJA DIHAPUS: 3 keluarga font eksternal menambah permintaan
+     jaringan yang menghambat render pertama (render-blocking) dan membuat halaman
+     terasa lebih lambat terutama di koneksi lambat/PC spek rendah — dipakai font
+     bawaan sistem saja, yang sudah tersedia instan tanpa perlu diunduh. -->
 
 <style>
   :root{
@@ -28,9 +28,9 @@
     --violet:#6a4c93; --violet-bg:#ece5f5;
     --blue-bg:#e3e9f2;
     --slate:#475569; --slate-bg:#eef1f5;
-    --font-display:'Fraunces',ui-serif,Georgia,serif;
-    --font-body:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    --font-mono:'JetBrains Mono',"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --font-display:ui-serif,Georgia,Cambria,"Times New Roman",Times,serif;
+    --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
     --shadow-sm:0 1px 2px rgba(18,33,63,.06);
     --shadow-md:0 8px 24px -10px rgba(18,33,63,.22);
     --shadow-lg:0 24px 60px -16px rgba(18,33,63,.35);
@@ -106,6 +106,13 @@
   .dropdown-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:9px 12px; border-radius:7px; font-size:13px; color:var(--ink-800); cursor:pointer; font-weight:500; font-family:var(--font-body); }
   .dropdown-item:hover{ background:var(--ink-50); }
   @media (max-width:760px){ .dropdown-menu{ left:auto; right:0; } }
+
+  .combobox-wrap{ position:relative; }
+  .combobox-list{ position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid var(--ink-100); border-radius:9px; box-shadow:var(--shadow-lg); max-height:230px; overflow-y:auto; z-index:55; padding:5px; animation:pop .12s var(--ease); }
+  .combobox-item{ width:100%; text-align:left; background:none; border:none; padding:9px 10px; border-radius:7px; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px; font-family:inherit; }
+  .combobox-item:hover{ background:var(--ink-50); }
+  .combobox-item b{ font-family:var(--font-mono); }
+  .combobox-empty{ padding:12px 10px; font-size:12.5px; color:var(--ink-400); text-align:center; }
 
   main{ padding:26px 0 60px; }
   .toolbar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
@@ -258,7 +265,9 @@
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#12213f;color:rgba(255,255,255,.55);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:13px;">Memuat SIMORIS…</div>
+</div>
 
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
@@ -278,26 +287,124 @@ const DEFAULT_KODE = [{ id:1, kode:"UM", nama:"Umum", warna:"emerald", aktif:tru
 const BULAN_ID = { "januari":0,"februari":1,"maret":2,"april":3,"mei":4,"juni":5,"juli":6,"agustus":7,"september":8,"oktober":9,"november":10,"desember":11 };
 const BULAN_NAMA = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
+// Skrip Apps Script v5 — Google Sheet menjadi database MASTER.
+// PENTING: kolom data di sheet Anda dimulai dari kolom B (kolom A dibiarkan
+// kosong), jadi skrip ini SELALU membaca/menulis mulai kolom B, TIDAK PERNAH
+// menyentuh kolom A. Kolom sheet: B=No, C=Tujuan Surat, D=Tanggal Surat,
+// E=Perihal, F=Nomor Surat Keluar/Surat Perintah, G=ID (kolom tersembunyi baru,
+// JANGAN diisi manual — diisi otomatis oleh skrip untuk menandai tiap baris).
+// Nomor urut (kolom B) dan angka di belakang Nomor Surat (kolom F) SENGAJA
+// dibuat SELALU SAMA untuk setiap surat baru yang diterbitkan dari SIMORIS —
+// keduanya dihitung dari jumlah baris data yang sudah ada + 1, dihitung ULANG
+// LANGSUNG dari sheet setiap kali (tidak pakai penghitung tersimpan terpisah
+// yang bisa "nyangkut"), supaya selalu cocok dengan data yang sebenarnya ada.
+// Baris yang diinput manual langsung di Google Sheet otomatis dikenali (skrip
+// mengisi kolom ID-nya sendiri saat "list" dipanggil) — SIMORIS selalu
+// mencerminkan ulang SELURUH isi sheet setiap sinkron, jadi tidak akan dobel.
+// Mendukung 4 aksi (?action=...): list, add, update, delete — update/delete
+// dialamatkan lewat ID di kolom G, BUKAN lewat kolom No, supaya tetap benar
+// walau baris disisipkan/diurutkan ulang manual di Sheets.
 const APPS_SCRIPT_SNIPPET =
 'function doGet(e) {\n' +
 '  var lock = LockService.getScriptLock();\n' +
-'  lock.waitLock(10000); // tunggu giliran kalau ada device lain menulis bersamaan\n' +
+'  lock.waitLock(15000);\n' +
 '  try {\n' +
 '    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
 '    var p = e.parameter;\n' +
-'    var lastRow = sheet.getLastRow();\n' +
-'    var lastNo = lastRow >= 2 ? Number(sheet.getRange(lastRow, 1).getValue()) || 0 : 0;\n' +
-'    var nextNo = lastNo + 1;\n' +
-'    var digit = Number(p.digit) || 3;\n' +
-'    var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" +\n' +
-'      ("0000" + nextNo).slice(-digit);\n' +
-'    sheet.appendRow([nextNo, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor]);\n' +
-'    return ContentService.createTextOutput(JSON.stringify({ ok:true, urut:nextNo, nomor:nomor }))\n' +
-'      .setMimeType(ContentService.MimeType.JSON);\n' +
+'    var action = p.action || "list";\n' +
+'\n' +
+'    if (action === "list") return doList(sheet);\n' +
+'    if (action === "add") return doAdd(sheet, p);\n' +
+'    if (action === "update") return doUpdate(sheet, p);\n' +
+'    if (action === "delete") return doDelete(sheet, p);\n' +
+'    return json({ ok:false, error:"Aksi tidak dikenali" });\n' +
 '  } finally {\n' +
 '    lock.releaseLock();\n' +
 '  }\n' +
+'}\n' +
+'\n' +
+'function doList(sheet) {\n' +
+'  var last = sheet.getLastRow();\n' +
+'  if (last < 2) return json({ ok:true, rows:[] });\n' +
+'  var data = sheet.getRange(2, 2, last - 1, 6).getValues(); // B:G sekali baca\n' +
+'  var rows = [];\n' +
+'  var idChanged = false;\n' +
+'  for (var i = 0; i < data.length; i++) {\n' +
+'    var r = data[i]; // r[0]=No r[1]=Tujuan r[2]=Tanggal r[3]=Perihal r[4]=Nomor r[5]=ID\n' +
+'    if (!r[0] && !r[1] && !r[3] && !r[4]) continue; // baris benar-benar kosong\n' +
+'    if (!r[5]) { r[5] = Utilities.getUuid(); idChanged = true; }\n' +
+'    rows.push({ id:String(r[5]), no:cellText(r[0]), tujuan:cellText(r[1]), tanggal:fmtCell(r[2]), perihal:cellText(r[3]), nomor:cellText(r[4]) });\n' +
+'  }\n' +
+'  if (idChanged) sheet.getRange(2, 2, data.length, 6).setValues(data); // satu kali tulis balik ke B:G\n' +
+'  return json({ ok:true, rows:rows });\n' +
+'}\n' +
+'\n' +
+'function doAdd(sheet, p) {\n' +
+'  var nextNo = nextCounter(sheet);\n' +
+'  var digit = Number(p.digit) || 3;\n' +
+'  var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" + ("0000"+nextNo).slice(-digit);\n' +
+'  var id = Utilities.getUuid();\n' +
+'  var newRow = sheet.getLastRow() + 1;\n' +
+'  sheet.getRange(newRow, 2, 1, 6).setValues([[nextNo, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor, id]]); // tulis ke B:G, kolom A tidak disentuh\n' +
+'  return json({ ok:true, id:id, no:nextNo, nomor:nomor });\n' +
+'}\n' +
+'\n' +
+'function doUpdate(sheet, p) {\n' +
+'  var rowIdx = findRowById(sheet, p.id);\n' +
+'  if (rowIdx === -1) return json({ ok:false, error:"Baris (ID) tidak ditemukan di sheet — mungkin sudah dihapus manual." });\n' +
+'  sheet.getRange(rowIdx, 3, 1, 4).setValues([[p.tujuan||"", p.tanggal||"", p.perihal||"", p.nomor||""]]); // C:F\n' +
+'  return json({ ok:true });\n' +
+'}\n' +
+'\n' +
+'function doDelete(sheet, p) {\n' +
+'  var rowIdx = findRowById(sheet, p.id);\n' +
+'  if (rowIdx === -1) return json({ ok:false, error:"Baris (ID) tidak ditemukan di sheet — mungkin sudah dihapus manual." });\n' +
+'  sheet.deleteRow(rowIdx);\n' +
+'  return json({ ok:true });\n' +
+'}\n' +
+'\n' +
+'function findRowById(sheet, id) {\n' +
+'  var last = sheet.getLastRow();\n' +
+'  if (last < 2 || !id) return -1;\n' +
+'  var vals = sheet.getRange(2, 7, last - 1, 1).getValues(); // kolom G\n' +
+'  for (var i = 0; i < vals.length; i++) {\n' +
+'    if (String(vals[i][0]) === String(id)) return i + 2;\n' +
+'  }\n' +
+'  return -1;\n' +
+'}\n' +
+'\n' +
+'function nextCounter(sheet) {\n' +
+'  // Dihitung dari TOTAL baris data yang sudah ada + 1 — supaya kolom No dan\n' +
+'  // angka di belakang Nomor Surat SELALU sama untuk setiap surat baru, dan\n' +
+'  // selalu cocok dengan jumlah surat yang sebenarnya ada di sheet saat itu.\n' +
+'  var last = sheet.getLastRow();\n' +
+'  if (last < 2) return 1;\n' +
+'  var vals = sheet.getRange(2, 2, last - 1, 4).getValues(); // B:E\n' +
+'  var count = 0;\n' +
+'  for (var i = 0; i < vals.length; i++) {\n' +
+'    var r = vals[i];\n' +
+'    if (r[0] || r[1] || r[2] || r[3]) count++;\n' +
+'  }\n' +
+'  return count + 1;\n' +
+'}\n' +
+'\n' +
+'function cellText(v) {\n' +
+'  return (v === null || v === undefined) ? "" : String(v);\n' +
+'}\n' +
+'\n' +
+'function fmtCell(v) {\n' +
+'  if (Object.prototype.toString.call(v) === "[object Date]") {\n' +
+'    return Utilities.formatDate(v, Session.getScriptTimeZone(), "yyyy-MM-dd");\n' +
+'  }\n' +
+'  return String(v || "");\n' +
+'}\n' +
+'\n' +
+'function json(obj) {\n' +
+'  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);\n' +
 '}';
+
+
+
 
 /* ============================== HELPER DASAR ============================== */
 
@@ -317,7 +424,7 @@ function pad2(n){ n = String(n); return n.length<2 ? "0"+n : n; }
 
 function defaultState(){
   return {
-    settings:{ instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" },
+    settings:{ instansiKode:"W.9", digit:3, appsScriptUrl:"" },
     counter:2,
     kodeList: DEFAULT_KODE,
     surats:[
@@ -332,8 +439,7 @@ function loadState(){
     const raw = localStorage.getItem(STORE_KEY);
     if(!raw){ const s = defaultState(); saveState(s); return s; }
     const parsed = JSON.parse(raw);
-    if(!parsed.settings) parsed.settings = { instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" };
-    if(typeof parsed.settings.googleSheetUrl === "undefined") parsed.settings.googleSheetUrl = "";
+    if(!parsed.settings) parsed.settings = { instansiKode:"W.9", digit:3, appsScriptUrl:"" };
     if(typeof parsed.settings.appsScriptUrl === "undefined") parsed.settings.appsScriptUrl = "";
     if(!Array.isArray(parsed.kodeList)) parsed.kodeList = DEFAULT_KODE;
     if(!Array.isArray(parsed.surats)) parsed.surats = [];
@@ -440,15 +546,20 @@ function parseRowsToSurats(rows, cols){
   }
   return out;
 }
-function parseNomorRaw(nomorRaw){
+function parseNomorRaw(nomorRaw, instansiKode){
   if(!nomorRaw) return null;
-  const parts = nomorRaw.split("-");
-  if(parts.length >= 3){
-    const urutStr = parts[parts.length-1];
-    const kodeStr = parts.slice(1, parts.length-1).join("-");
-    if(/^\d+$/.test(urutStr) && kodeStr) return { urut: parseInt(urutStr,10), kodeStr: kodeStr };
+  const trailMatch = String(nomorRaw).match(/(\d+)\s*$/);
+  if(!trailMatch) return null;
+  const urut = parseInt(trailMatch[1], 10);
+  let rest = nomorRaw.slice(0, nomorRaw.length - trailMatch[0].length);
+  rest = rest.replace(/[.\-\s]+$/, ""); // buang pemisah sebelum angka, mis. "...-" atau "..."
+  if(instansiKode){
+    const ik = String(instansiKode).trim();
+    if(ik && rest.toLowerCase().indexOf(ik.toLowerCase()) === 0) rest = rest.slice(ik.length);
   }
-  return null;
+  rest = rest.replace(/^[.\-\s]+/, ""); // buang pemisah setelah kode instansi
+  if(!rest) return null;
+  return { urut: urut, kodeStr: rest };
 }
 function excelCellToStr(v){
   if(v instanceof Date && !isNaN(v)) return v.getFullYear()+"-"+pad2(v.getMonth()+1)+"-"+pad2(v.getDate());
@@ -459,14 +570,14 @@ function applyImportToDraft(draft, parsedRows){
   const existingNomor = {};
   draft.surats.forEach(function(s){ existingNomor[displayNomor(draft,s)] = true; });
   parsedRows.forEach(function(pr){
-    const parsed = parseNomorRaw(pr.nomorRaw);
+    const parsed = parseNomorRaw(pr.nomorRaw, draft.settings.instansiKode);
     if(parsed && parsed.urut > draft.counter) draft.counter = parsed.urut;
   });
   let kodeUmum=null, ditambahkan=0, dilewati=0, maxUrutImpor=0;
   parsedRows.forEach(function(pr){
     const tanggal = parseTanggalIndo(pr.tanggalRaw) || isoToday(0);
     let kodeObj=null, urut=null;
-    const parsed = parseNomorRaw(pr.nomorRaw);
+    const parsed = parseNomorRaw(pr.nomorRaw, draft.settings.instansiKode);
     if(parsed){ urut = parsed.urut; kodeObj = ensureKodeInDraft(draft, parsed.kodeStr); }
     if(!kodeObj && pr.kodeExplicit) kodeObj = ensureKodeInDraft(draft, pr.kodeExplicit);
     if(!kodeObj){ if(!kodeUmum) kodeUmum = ensureKodeInDraft(draft, "IMPOR"); kodeObj = kodeUmum; }
@@ -482,57 +593,58 @@ function applyImportToDraft(draft, parsedRows){
   draft.surats.sort(function(a,b){ return b.urut - a.urut; });
   return { ditambahkan: ditambahkan, dilewati: dilewati };
 }
-function extractSheetId(url){ const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/); return m ? m[1] : null; }
-function extractGid(url){ const m = url.match(/[#&?]gid=([0-9]+)/); return m ? m[1] : "0"; }
-function buildCandidateCsvUrls(rawUrl){
-  const url = rawUrl.trim();
-  if(/output=csv|format=csv|tqx=out:csv/.test(url)) return [url];
-  const id = extractSheetId(url);
-  if(!id) return [];
-  const gid = extractGid(url);
-  return [
-    "https://docs.google.com/spreadsheets/d/"+id+"/export?format=csv&gid="+gid,
-    "https://docs.google.com/spreadsheets/d/"+id+"/gviz/tq?tqx=out:csv&gid="+gid
-  ];
-}
-async function tryFetchCsv(urls, timeoutMs){
-  let lastErr = null;
-  for(let i=0;i<urls.length;i++){
-    try{
-      const hasAbort = typeof AbortController !== "undefined";
-      const controller = hasAbort ? new AbortController() : null;
-      const timer = controller ? setTimeout(function(){ controller.abort(); }, timeoutMs) : null;
-      const res = await fetch(urls[i], { cache:"no-store", signal: controller ? controller.signal : undefined });
-      if(timer) clearTimeout(timer);
-      if(!res.ok) throw new Error("HTTP "+res.status);
-      const text = await res.text();
-      if(/^\s*<(!doctype|html)/i.test(text) || /accounts\.google\.com\/ServiceLogin/i.test(text)){
-        throw new Error("Sheet mengembalikan halaman login/HTML, bukan data — sheet belum bisa diakses publik.");
-      }
-      if(!text || !text.trim()) throw new Error("Sheet mengembalikan data kosong.");
-      return text;
-    }catch(err){ lastErr = err; }
-  }
-  throw lastErr || new Error("Semua percobaan pengambilan data gagal.");
-}
-async function requestNomorFromSheet(S, kodeStr, tujuan, tanggal, perihal){
+/* ---------- Sinkron Google Sheet (Sheet = database master) ----------
+   Semua baca/tulis lewat SATU URL Apps Script (?action=list|add|update|delete).
+   Tidak lagi memakai tautan "Bagikan" CSV — sheet boleh tetap privat, karena
+   Apps Script yang mengeksekusi dengan izin pemilik skrip. */
+async function callSheetAction(S, action, params, timeoutMs){
   const url = (S.settings.appsScriptUrl||"").trim();
-  if(!url) return { ok:false };
-  const qs = "kode="+encodeURIComponent(kodeStr)+"&instansi="+encodeURIComponent(S.settings.instansiKode)+
-    "&digit="+encodeURIComponent(S.settings.digit)+"&tujuan="+encodeURIComponent(tujuan||"")+
-    "&tanggal="+encodeURIComponent(fmtTanggal(tanggal))+"&perihal="+encodeURIComponent(perihal||"");
+  if(!url) return { ok:false, reason:"no-url" };
+  const qs = ["action="+encodeURIComponent(action)];
+  Object.keys(params||{}).forEach(function(k){ qs.push(k+"="+encodeURIComponent(params[k]==null?"":params[k])); });
+  const full = url + (url.indexOf("?")>-1 ? "&" : "?") + qs.join("&");
   try{
     const hasAbort = typeof AbortController !== "undefined";
     const controller = hasAbort ? new AbortController() : null;
-    const timer = controller ? setTimeout(function(){ controller.abort(); }, 12000) : null;
-    const res = await fetch(url + (url.indexOf("?")>-1 ? "&" : "?") + qs, { method:"GET", signal: controller ? controller.signal : undefined });
+    const timer = controller ? setTimeout(function(){ controller.abort(); }, timeoutMs||15000) : null;
+    const res = await fetch(full, { method:"GET", cache:"no-store", signal: controller ? controller.signal : undefined });
     if(timer) clearTimeout(timer);
     if(!res.ok) throw new Error("HTTP "+res.status);
     const data = await res.json();
-    if(!data || !data.ok) throw new Error("respons tidak valid");
-    return { ok:true, urut:data.urut, nomor:data.nomor };
-  }catch(e){ return { ok:false }; }
+    if(!data || typeof data.ok === "undefined") throw new Error("Respons tidak valid dari Apps Script.");
+    return data;
+  }catch(err){
+    return { ok:false, reason:"network", error: err && err.message ? err.message : String(err) };
+  }
 }
+
+/* ---------- Pemuat skrip lazy (Excel & PDF baru diambil saat dipakai) ---------- */
+const _scriptCache = {};
+function loadScriptOnce(src){
+  if(_scriptCache[src]) return _scriptCache[src];
+  _scriptCache[src] = new Promise(function(resolve, reject){
+    const el = document.createElement("script");
+    el.src = src;
+    el.onload = function(){ resolve(true); };
+    el.onerror = function(){ delete _scriptCache[src]; reject(new Error("Gagal memuat "+src)); };
+    document.head.appendChild(el);
+  });
+  return _scriptCache[src];
+}
+async function ensureXlsxLoaded(){
+  if(typeof XLSX !== "undefined") return true;
+  try{ await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"); return typeof XLSX !== "undefined"; }
+  catch(e){ return false; }
+}
+async function ensureJsPdfLoaded(){
+  if(typeof window.jspdf !== "undefined" && window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.autoTable) return true;
+  try{
+    await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js");
+    return typeof window.jspdf !== "undefined";
+  }catch(e){ return false; }
+}
+
 function downloadBlob(blob, filename){
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -541,11 +653,11 @@ function downloadBlob(blob, filename){
   URL.revokeObjectURL(url);
 }
 function exportCsvFile(S, rows){
-  const header = ["No","Nomor Surat","Tanggal","Tujuan","Perihal","Kode Klasifikasi"];
+  const header = ["No","Tujuan Surat","Tanggal Surat","Perihal","Nomor Surat","Kode Klasifikasi"];
   const lines = [header.join(",")];
   rows.forEach(function(s){
     const k = kodeOf(S, s.kodeId);
-    const cells = [s.urut, displayNomor(S,s), fmtTanggal(s.tanggal), s.tujuan||"", s.perihal, k?k.kode:""].map(function(c){
+    const cells = [s.urut, s.tujuan||"", fmtTanggal(s.tanggal), s.perihal, displayNomor(S,s), k?k.kode:""].map(function(c){
       const v = String(c).replace(/"/g,'""');
       return /[",\n]/.test(v) ? '"'+v+'"' : v;
     });
@@ -553,8 +665,9 @@ function exportCsvFile(S, rows){
   });
   downloadBlob(new Blob(["\uFEFF"+lines.join("\r\n")], { type:"text/csv;charset=utf-8;" }), "simoris-rekap-"+isoToday(0)+".csv");
 }
-function exportExcelFile(S, rows){
-  if(typeof XLSX === "undefined") return false;
+async function exportExcelFile(S, rows){
+  const ready = await ensureXlsxLoaded();
+  if(!ready) return false;
   const sorted = rows.slice().sort(function(a,b){ return a.urut-b.urut; });
   const data = [["NO","TUJUAN SURAT","TANGGAL SURAT","PERIHAL","NOMOR SURAT KELUAR / SURAT PERINTAH"]];
   sorted.forEach(function(s, idx){ data.push([idx+1, s.tujuan||"", fmtTanggal(s.tanggal), s.perihal, displayNomor(S,s)]); });
@@ -565,8 +678,9 @@ function exportExcelFile(S, rows){
   XLSX.writeFile(wb, "simoris-rekap-"+isoToday(0)+".xlsx");
   return true;
 }
-function exportPdfFile(S, rows){
-  if(typeof window.jspdf === "undefined") return false;
+async function exportPdfFile(S, rows){
+  const ready = await ensureJsPdfLoaded();
+  if(!ready) return false;
   const sorted = rows.slice().sort(function(a,b){ return a.urut-b.urut; });
   const body = sorted.map(function(s, idx){ return [idx+1, s.tujuan||"-", fmtTanggal(s.tanggal), s.perihal, displayNomor(S,s)]; });
   const doc = new window.jspdf.jsPDF({ orientation:"landscape", unit:"pt", format:"a4" });
@@ -616,11 +730,13 @@ function Toast({ message }){
   return <div className="toast"><IconCheck size={16}/><span>{message}</span></div>;
 }
 
-function Banner(){
+function Banner({ masterMode }){
   return (
     <div className="banner">
       <IconInfo size={15}/>
-      <span>Data tersimpan otomatis di peramban perangkat ini. Untuk memakai data yang sama di perangkat/komputer lain: unduh <b>Cadangkan (JSON)</b> di sini lalu <b>Impor Excel/CSV</b> file tersebut di perangkat lain. Anda juga bisa langsung mengimpor rekap lama dari file Excel (.xlsx) sesuai format spreadsheet sebelumnya (kolom Tujuan Surat, Tanggal Surat, Perihal, Nomor Surat).</span>
+      {masterMode
+        ? <span><b>Google Sheet adalah data master.</b> Semua yang tampil di sini persis sama dengan isi sheet — terbitkan, ubah, atau hapus surat di SIMORIS langsung tersinkron ke sana, dan sebaliknya lewat tombol "Refresh Google Sheet".</span>
+        : <span>Data tersimpan otomatis di peramban perangkat ini. Untuk memakai data yang sama di perangkat/komputer lain: unduh <b>Cadangkan (JSON)</b> di sini lalu <b>Impor Excel/CSV</b> file tersebut di perangkat lain, atau aktifkan sinkron Google Sheet lewat "Kelola Kode" supaya semua perangkat memakai data yang sama.</span>}
     </div>
   );
 }
@@ -722,7 +838,7 @@ function Header({ count, onKelola, onTambah, onLogout }){
 function Toolbar({
   search, onSearch, kodeFilter, onKodeFilter, aktifKodeList,
   onRefreshSheet, refreshing, onImportClick, fileInputRef, onFileChange,
-  downloadMenuOpen, setDownloadMenuOpen, onExportExcel, onExportCsv, onExportPdf, onPrint, onBackupJson
+  downloadMenuOpen, setDownloadMenuOpen, onExportExcel, onExportCsv, onExportPdf, onPrint, onBackupJson, masterMode
 }){
   const wrapRef = useRef(null);
   useEffect(function(){
@@ -745,10 +861,14 @@ function Toolbar({
       <div className="toolbar-right">
         <button className="btn btn-segel" onClick={onRefreshSheet} disabled={refreshing}>
           {refreshing ? <IconRefresh size={14} className="spin"/> : <IconRefresh size={14}/>}
-          {refreshing ? "Memuat..." : "Refresh Google Sheet"}
+          {refreshing ? "Memuat..." : (masterMode ? "Refresh Google Sheet" : "Sinkron Google Sheet")}
         </button>
-        <button className="btn btn-ghost" onClick={onImportClick}><IconUpload size={14}/>Impor Excel/CSV</button>
-        <input ref={fileInputRef} type="file" accept=".json,.csv,.xlsx,.xls" className="visually-hidden" onChange={onFileChange} />
+        {!masterMode && (
+          <React.Fragment>
+            <button className="btn btn-ghost" onClick={onImportClick}><IconUpload size={14}/>Impor Excel/CSV</button>
+            <input ref={fileInputRef} type="file" accept=".json,.csv,.xlsx,.xls" className="visually-hidden" onChange={onFileChange} />
+          </React.Fragment>
+        )}
         <div className="dropdown-wrap" ref={wrapRef}>
           <button className="btn btn-ghost" onClick={function(e){ e.stopPropagation(); setDownloadMenuOpen(!downloadMenuOpen); }}>
             <IconDownload size={14}/>Unduh<IconChevronDown size={14}/>
@@ -806,7 +926,7 @@ function SuratTable({ S, rows, pageInfo, onRowClick, onEdit, onDelete, paginatio
       <div className="card table-desktop">
         <table>
           <thead>
-            <tr><th style={{width:40}}>No</th><th>Nomor Surat</th><th>Tanggal</th><th>Tujuan</th><th>Perihal</th><th>Klasifikasi</th><th></th></tr>
+            <tr><th style={{width:40}}>No</th><th>Tujuan Surat</th><th>Tanggal Surat</th><th>Perihal</th><th>Klasifikasi</th><th>Nomor Surat</th><th></th></tr>
           </thead>
           <tbody>
             {rows.map(function(s){
@@ -815,11 +935,11 @@ function SuratTable({ S, rows, pageInfo, onRowClick, onEdit, onDelete, paginatio
               return (
                 <tr key={s.id} className="row-clickable" onClick={function(){ onRowClick(s.id); }}>
                   <td className="mono" style={{color:"var(--ink-400)"}}>{s.urut}</td>
-                  <td><span className="nomor-badge mono">{displayNomor(S,s)}</span></td>
-                  <td style={{whiteSpace:"nowrap",color:"var(--ink-600)"}}>{fmtTanggal(s.tanggal)}</td>
                   <td>{s.tujuan||"—"}</td>
+                  <td style={{whiteSpace:"nowrap",color:"var(--ink-600)"}}>{fmtTanggal(s.tanggal)}</td>
                   <td className="truncate" title={s.perihal}>{s.perihal}</td>
                   <td>{k ? <span className={"badge "+warnaCls}>{k.kode}</span> : "—"}</td>
+                  <td><span className="nomor-badge mono">{displayNomor(S,s)}</span></td>
                   <td style={{textAlign:"right"}}><RowActions s={s}/></td>
                 </tr>
               );
@@ -836,11 +956,12 @@ function SuratTable({ S, rows, pageInfo, onRowClick, onEdit, onDelete, paginatio
           return (
             <div key={s.id} className="surat-card row-clickable" onClick={function(){ onRowClick(s.id); }}>
               <div className="surat-card-top">
-                <span className="nomor-badge mono">{displayNomor(S,s)}</span>
+                <span style={{fontSize:11,color:"var(--ink-400)",fontWeight:700}}>No {s.urut}{s.tujuan ? " · "+s.tujuan : ""}</span>
                 {k && <span className={"badge "+warnaCls}>{k.kode}</span>}
               </div>
               <p className="surat-card-perihal">{s.perihal}</p>
-              <p className="surat-card-meta">{fmtTanggal(s.tanggal)}{s.tujuan ? " · Tujuan: "+s.tujuan : ""}</p>
+              <p className="surat-card-meta">{fmtTanggal(s.tanggal)}</p>
+              <span className="nomor-badge mono" style={{marginTop:2,marginBottom:2}}>{displayNomor(S,s)}</span>
               <RowActions s={s} mobile/>
             </div>
           );
@@ -852,6 +973,61 @@ function SuratTable({ S, rows, pageInfo, onRowClick, onEdit, onDelete, paginatio
 }
 
 /* ============================== MODAL: TAMBAH/UBAH SURAT ============================== */
+
+function KodeCombobox({ options, value, onChange, placeholder }){
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+  const selected = options.find(function(k){ return k.id===value; }) || null;
+
+  useEffect(function(){
+    if(!open) return;
+    function onDocClick(e){ if(wrapRef.current && !wrapRef.current.contains(e.target)){ setOpen(false); setQuery(""); } }
+    document.addEventListener("mousedown", onDocClick);
+    return function(){ document.removeEventListener("mousedown", onDocClick); };
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? options.filter(function(k){ return (k.kode+" "+k.nama).toLowerCase().indexOf(q) > -1; })
+    : options;
+
+  function pick(k){
+    onChange(k.id);
+    setOpen(false);
+    setQuery("");
+  }
+
+  return (
+    <div className="combobox-wrap" ref={wrapRef}>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder={placeholder||"Cari kode atau nama..."}
+        value={open ? query : (selected ? (selected.kode+" — "+selected.nama+(selected.aktif?"":" (nonaktif)")) : "")}
+        onFocus={function(){ setOpen(true); setQuery(""); }}
+        onChange={function(e){ setQuery(e.target.value); }}
+        onKeyDown={function(e){
+          if(e.key==="Escape"){ setOpen(false); setQuery(""); }
+          if(e.key==="Enter" && filtered.length){ e.preventDefault(); pick(filtered[0]); }
+        }}
+      />
+      {open && (
+        <div className="combobox-list">
+          {filtered.length ? filtered.map(function(k){
+            return (
+              <button type="button" key={k.id} className="combobox-item" onMouseDown={function(e){ e.preventDefault(); pick(k); }}>
+                <span><b>{k.kode}</b> — {k.nama}{k.aktif?"":" (nonaktif)"}</span>
+                {k.id===value && <IconCheck size={14}/>}
+              </button>
+            );
+          }) : <div className="combobox-empty">Tidak ada kode yang cocok.</div>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
   const opsiKodeBase = aktifKode(S);
@@ -917,9 +1093,7 @@ function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
           {!opsiKodeBase.length && <p className="error-text">Belum ada kode klasifikasi aktif. Tambahkan lewat "Kelola Kode" dulu.</p>}
           <div className="field">
             <label>Kode Klasifikasi</label>
-            <select value={kodeId||""} onChange={function(e){ setKodeId(Number(e.target.value)); }}>
-              {opsiKode.map(k => <option key={k.id} value={k.id}>{k.kode} — {k.nama}{k.aktif?"":" (nonaktif)"}</option>)}
-            </select>
+            <KodeCombobox options={opsiKode} value={kodeId} onChange={setKodeId} placeholder="Ketik untuk mencari kode/nama..."/>
           </div>
           <div className="grid2">
             <div className="field"><label>Tanggal Surat</label><input type="date" value={tanggal} onChange={function(e){ setTanggal(e.target.value); }}/></div>
@@ -1037,7 +1211,7 @@ function HapusSemuaModal({ open, count, onClose, onConfirm }){
 
 /* ============================== MODAL: KELOLA KODE ============================== */
 
-function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showConfirm, onOpenHapusSemua, onTestRefresh }){
+function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showConfirm, onOpenHapusSemua, onSaveAndRefresh, masterMode }){
   const [newKode, setNewKode] = useState("");
   const [newNama, setNewNama] = useState("");
   const [kodeErr, setKodeErr] = useState("");
@@ -1045,26 +1219,24 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
   const [setInstansi, setSetInstansi] = useState(S.settings.instansiKode);
   const [setDigit, setSetDigit] = useState(S.settings.digit);
 
-  const [sheetUrl, setSheetUrl] = useState(S.settings.googleSheetUrl||"");
-  const [sheetUrlErr, setSheetUrlErr] = useState("");
-
   const [pwOld, setPwOld] = useState(""); const [pwNew, setPwNew] = useState(""); const [pwNewConfirm, setPwNewConfirm] = useState("");
   const [pwErr, setPwErr] = useState("");
 
-  const [appsExpanded, setAppsExpanded] = useState(false);
+  const [appsExpanded, setAppsExpanded] = useState(!masterMode);
   const [appsUrl, setAppsUrl] = useState(S.settings.appsScriptUrl||"");
   const [appsErr, setAppsErr] = useState("");
   const [copied, setCopied] = useState(false);
+  const [savingApps, setSavingApps] = useState(false);
 
   useEffect(function(){
     if(open){
       setSetInstansi(S.settings.instansiKode);
       setSetDigit(S.settings.digit);
-      setSheetUrl(S.settings.googleSheetUrl||"");
       setAppsUrl(S.settings.appsScriptUrl||"");
+      setAppsExpanded(!masterMode);
       setNewKode(""); setNewNama(""); setKodeErr("");
       setPwOld(""); setPwNew(""); setPwNewConfirm(""); setPwErr("");
-      setSheetUrlErr(""); setAppsErr("");
+      setAppsErr("");
     }
   }, [open]);
 
@@ -1090,28 +1262,6 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
     mutateS(function(draft){ draft.settings.instansiKode = instansi; draft.settings.digit = digit; });
     showToast("Pengaturan disimpan.");
   }
-  function saveSheetUrl(){
-    const url = sheetUrl.trim();
-    if(url && !/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
-      setSheetUrlErr("Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...");
-      return;
-    }
-    setSheetUrlErr("");
-    mutateS(function(draft){ draft.settings.googleSheetUrl = url; });
-    showToast(url ? "Tautan Google Sheet disimpan." : "Tautan Google Sheet dikosongkan.");
-  }
-  function testRefresh(){
-    const url = sheetUrl.trim();
-    if(!url){ setSheetUrlErr("Isi tautan Google Sheet terlebih dahulu."); return; }
-    if(!/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)){
-      setSheetUrlErr("Tautan sepertinya bukan tautan Google Sheets. Pastikan diawali https://docs.google.com/spreadsheets/...");
-      return;
-    }
-    setSheetUrlErr("");
-    mutateS(function(draft){ draft.settings.googleSheetUrl = url; });
-    onClose();
-    onTestRefresh(url);
-  }
   function changePw(){
     if(simpleHash(pwOld) !== getStoredPwHash()){ setPwErr("Kata sandi saat ini salah."); return; }
     if(pwNew.length < 4){ setPwErr("Kata sandi baru minimal 4 karakter."); return; }
@@ -1126,15 +1276,26 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
       navigator.clipboard.writeText(APPS_SCRIPT_SNIPPET).then(done).catch(done);
     } else { done(); }
   }
-  function saveAppsUrl(){
+  function saveAppsUrlOnly(){
     const url = appsUrl.trim();
     if(url && !/^https:\/\/script\.google\.com\/macros\//.test(url)){
       setAppsErr("URL sepertinya bukan URL Web App Apps Script. Harus diawali https://script.google.com/macros/...");
-      return;
+      return false;
     }
     setAppsErr("");
     mutateS(function(draft){ draft.settings.appsScriptUrl = url; });
-    showToast(url ? "URL tulis-balik disimpan." : "URL tulis-balik dikosongkan.");
+    return true;
+  }
+  function saveAppsUrl(){
+    if(saveAppsUrlOnly()) showToast(appsUrl.trim() ? "URL Apps Script disimpan." : "URL Apps Script dikosongkan — kembali ke mode lokal.");
+  }
+  async function saveAndRefresh(){
+    if(!appsUrl.trim()){ setAppsErr("Isi URL Apps Script terlebih dahulu."); return; }
+    if(!saveAppsUrlOnly()) return;
+    setSavingApps(true);
+    onClose();
+    onSaveAndRefresh();
+    setSavingApps(false);
   }
 
   return (
@@ -1177,17 +1338,6 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
           </div>
 
           <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
-            <p className="hint" style={{marginBottom:8,fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Sumber data Google Sheet (opsional)</p>
-            <p className="hint" style={{marginBottom:10,lineHeight:1.5}}>Tempel tautan <b>Bagikan</b> biasa dari Google Sheets — tidak perlu Publikasikan ke Web atau mengubah data master. Cukup: klik <b>Bagikan</b> di kanan atas sheet → ubah akses umum menjadi "Siapa saja yang memiliki tautan → Dapat melihat" → salin tautannya → tempel di sini.</p>
-            <div className="field"><label>Tautan Google Sheet</label><input type="text" placeholder="https://docs.google.com/spreadsheets/d/XXXXXXXX/edit" value={sheetUrl} onChange={function(e){ setSheetUrl(e.target.value); }}/></div>
-            {sheetUrlErr && <p className="error-text" style={{marginTop:8}}>{sheetUrlErr}</p>}
-            <div className="form-actions" style={{marginTop:10}}>
-              <button className="btn-ghost" onClick={saveSheetUrl}>Simpan Tautan</button>
-              <button className="btn-dark" onClick={testRefresh}>Simpan &amp; Refresh Sekarang</button>
-            </div>
-          </div>
-
-          <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
             <p className="hint" style={{marginBottom:8,fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Ubah kata sandi akses</p>
             <div className="field"><label>Kata sandi saat ini</label><input type="password" placeholder="Kata sandi saat ini" value={pwOld} onChange={function(e){ setPwOld(e.target.value); }}/></div>
             <div className="grid2" style={{marginTop:10}}>
@@ -1200,31 +1350,42 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
 
           <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
             <button onClick={function(){ setAppsExpanded(!appsExpanded); }} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",background:"none",border:"none",padding:0,cursor:"pointer",textAlign:"left"}}>
-              <span className="hint" style={{fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Tulis balik ke Google Sheet (lanjutan, opsional)</span>
+              <span className="hint" style={{fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Sinkron Google Sheet (data master)</span>
               <span style={{color:"var(--ink-400)",transition:"transform .15s",transform:appsExpanded?"rotate(180deg)":"none"}}><IconChevronDown size={14}/></span>
             </button>
-            {S.settings.appsScriptUrl
-              ? <p className="hint" style={{marginTop:6,color:"var(--green)"}}>✓ Aktif — surat baru otomatis tercatat ke sheet</p>
-              : <p className="hint" style={{marginTop:6}}>Nonaktif. Surat tetap tersimpan normal di perangkat ini tanpa fitur ini.</p>}
+            {masterMode
+              ? <p className="hint" style={{marginTop:6,color:"var(--green)"}}>✓ Aktif — Google Sheet adalah data master. Setiap terbitkan/ubah/hapus surat di SIMORIS langsung tersinkron ke sheet, dan sebaliknya.</p>
+              : <p className="hint" style={{marginTop:6}}>Nonaktif. SIMORIS memakai penyimpanan lokal di peramban ini saja.</p>}
+            {masterMode && (
+              <button className="btn btn-segel" onClick={function(){ onClose(); onSaveAndRefresh(); }} style={{width:"100%",marginTop:10,justifyContent:"center",padding:10}}>
+                <IconRefresh size={14}/>Sinkron Manual Sekarang
+              </button>
+            )}
             {appsExpanded && (
               <div style={{marginTop:12}}>
-                <p className="hint" style={{marginBottom:10,lineHeight:1.6}}>Supaya surat yang diterbitkan dari SIMORIS ikut tercatat otomatis di sheet, ikuti langkah berikut sekali saja:</p>
+                <p className="hint" style={{marginBottom:10,lineHeight:1.5}}>
+                  Dengan fitur ini, <b>Google Sheet Anda menjadi database utama/master</b> — SIMORIS hanya menjadi tampilan yang selalu mencerminkan isi sheet itu persis. Sheet boleh tetap privat (tidak perlu dibagikan ke publik) karena semua akses lewat Apps Script berikut. Skrip ini dibuat khusus untuk sheet dengan data mulai <b>kolom B</b> (kolom A dibiarkan kosong): B=No, C=Tujuan Surat, D=Tanggal Surat, E=Perihal, F=Nomor Surat. Ikuti langkah ini:
+                </p>
                 <ol style={{fontSize:12.5,color:"var(--ink-700)",lineHeight:2,margin:"0 0 12px",paddingLeft:20}}>
                   <li>Buka Google Sheet Anda, klik menu <b>Extensions</b> → <b>Apps Script</b>.</li>
                   <li>Hapus tulisan yang ada, lalu tempel kode di bawah ini (klik "Salin Kode" dulu).</li>
-                  <li>Klik <b>Deploy</b> (kanan atas) → <b>New deployment</b>.</li>
-                  <li>Klik ikon gerigi ⚙️ di samping "Select type" → pilih <b>Web app</b>.</li>
+                  <li>Klik <b>Deploy</b> (kanan atas) → <b>New deployment</b> (kalau sudah pernah deploy sebelumnya: <b>Manage deployments</b> → ikon pensil → Version: "New version" → Deploy — supaya versi terbaru yang aktif, bukan yang lama).</li>
+                  <li>Klik ikon gerigi di samping "Select type" → pilih <b>Web app</b> (langkah ini dilewati kalau memakai "Manage deployments").</li>
                   <li>Pada "Who has access", pilih <b>Anyone</b> → klik <b>Deploy</b> → izinkan akses jika diminta.</li>
-                  <li>Salin <b>URL Web app</b> yang muncul → tempel di kolom di bawah → Simpan.</li>
+                  <li>Salin <b>URL Web app</b> yang muncul → tempel di kolom di bawah → <b>Simpan &amp; Sinkron Sekarang</b>.</li>
                 </ol>
+                <div className="banner" style={{marginBottom:12}}><IconInfo size={15}/><span>Kolom G akan otomatis dipakai skrip ini sebagai ID tersembunyi per baris — boleh diberi judul "ID" atau dibiarkan tanpa judul, jangan diisi manual.</span></div>
                 <div style={{position:"relative"}}>
                   <textarea className="code-snippet" readOnly rows={9} value={APPS_SCRIPT_SNIPPET} onClick={function(e){ e.target.select(); }}/>
-                  <button className="btn btn-ghost" onClick={copySnippet} style={{position:"absolute",top:8,right:8,padding:"6px 10px",fontSize:11.5}}>{copied ? "Tersalin ✓" : "Salin Kode"}</button>
+                  <button className="btn btn-ghost" onClick={copySnippet} style={{position:"absolute",top:8,right:8,padding:"6px 10px",fontSize:11.5}}>{copied ? "Tersalin" : "Salin Kode"}</button>
                 </div>
                 <div className="field" style={{marginTop:10}}><label>URL Web App Apps Script</label><input type="text" placeholder="https://script.google.com/macros/s/XXXXX/exec" value={appsUrl} onChange={function(e){ setAppsUrl(e.target.value); }}/></div>
                 {appsErr && <p className="error-text" style={{marginTop:8}}>{appsErr}</p>}
-                <p className="hint" style={{marginTop:8}}>Catatan: hanya surat <b>baru</b> dari SIMORIS yang dikirim ke sheet. Kalau URL ini diisi, nomor surat akan diminta dari sheet (lebih aman kalau dipakai banyak perangkat sekaligus) — kalau sheet tidak terjangkau, SIMORIS otomatis memakai nomor lokal sebagai cadangan.</p>
-                <button className="btn-dark" onClick={saveAppsUrl} style={{width:"100%",marginTop:10,padding:10,borderRadius:8}}>Simpan URL Tulis-Balik</button>
+                <p className="hint" style={{marginTop:8}}>Kalau kolom ini dikosongkan lalu disimpan, SIMORIS kembali memakai penyimpanan lokal biasa (tanpa Google Sheet).</p>
+                <div className="form-actions" style={{marginTop:10}}>
+                  <button className="btn-ghost" onClick={saveAppsUrl}>Simpan Saja</button>
+                  <button className="btn-dark" onClick={saveAndRefresh} disabled={savingApps}>{savingApps ? "Menyinkronkan..." : "Simpan & Sinkron Sekarang"}</button>
+                </div>
               </div>
             )}
           </div>
@@ -1232,8 +1393,15 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
           <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
             <p className="hint" style={{marginBottom:8,fontWeight:700,color:"var(--red)",textTransform:"uppercase",fontSize:11}}>Zona Bahaya</p>
             <div className="danger-zone">
-              <p style={{fontSize:12.5,color:"var(--ink-600)",margin:"0 0 10px",lineHeight:1.5}}>Menghapus SEMUA data surat ({S.surats.length} surat) secara permanen dari perangkat ini. Kode klasifikasi dan pengaturan tidak ikut terhapus.</p>
-              <button onClick={onOpenHapusSemua} style={{width:"100%",padding:10,borderRadius:8,fontWeight:700,cursor:"pointer",background:"var(--red)",color:"#fff",border:"none"}}>Hapus Semua Data Surat</button>
+              {masterMode ? (
+                <p style={{fontSize:12.5,color:"var(--ink-600)",margin:"0 0 10px",lineHeight:1.5}}>Mode master Google Sheet sedang aktif — hapus banyak data sekaligus dilakukan langsung di Google Sheet (hapus barisnya), lalu klik <b>Refresh Google Sheet</b> di SIMORIS supaya tampilannya ikut sinkron. Tombol di bawah dinonaktifkan supaya data di SIMORIS tidak menyimpang dari sheet.</p>
+              ) : (
+                <p style={{fontSize:12.5,color:"var(--ink-600)",margin:"0 0 10px",lineHeight:1.5}}>Menghapus SEMUA data surat ({S.surats.length} surat) secara permanen dari perangkat ini. Kode klasifikasi dan pengaturan tidak ikut terhapus.</p>
+              )}
+              <button onClick={onOpenHapusSemua} disabled={masterMode}
+                style={{width:"100%",padding:10,borderRadius:8,fontWeight:700,cursor:masterMode?"not-allowed":"pointer",background:masterMode?"var(--ink-100)":"var(--red)",color:masterMode?"var(--ink-400)":"#fff",border:"none"}}>
+                Hapus Semua Data Surat
+              </button>
             </div>
           </div>
         </div>
@@ -1241,6 +1409,7 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
     </div>
   );
 }
+
 
 /* ============================== APP ============================== */
 
@@ -1309,18 +1478,23 @@ function App(){
 
   /* ---------- Surat CRUD ---------- */
 
-  function openTambah(){ setEditingId(null); setModal("surat"); }
+  function openTambah(){
+    setEditingId(null);
+    setModal("surat");
+    if(masterMode) refreshFromSheet(true); // segarkan di latar belakang supaya preview nomor akurat
+  }
   function openEdit(id){ setEditingId(id); setModal("surat"); }
   function closeSuratModal(){ setModal(null); setEditingId(null); }
 
-  function finalizeNewSurat(urutOrNull, kodeId, nomorOverride, tujuan, perihal, tanggal, dibuatOleh, customMsg){
+  const masterMode = !!(S.settings.appsScriptUrl||"").trim();
+
+  function finalizeNewSuratLocal(values, customMsg){
     let msg = customMsg;
     mutateS(function(draft){
-      let finalUrut = urutOrNull;
-      if(finalUrut == null){ draft.counter += 1; finalUrut = draft.counter; }
-      else if(finalUrut > draft.counter){ draft.counter = finalUrut; }
-      const nomorText = nomorOverride || nomorSurat(draft, finalUrut, kodeId);
-      draft.surats.unshift({ id:uid(), urut:finalUrut, kodeId:kodeId, tujuan:tujuan, perihal:perihal, tanggal:tanggal, dibuatOleh:dibuatOleh, sumber:"manual", nomorOverride: nomorOverride||null });
+      draft.counter += 1;
+      const finalUrut = draft.counter;
+      const nomorText = nomorSurat(draft, finalUrut, values.kodeId);
+      draft.surats.unshift({ id:uid(), urut:finalUrut, kodeId:values.kodeId, tujuan:values.tujuan, perihal:values.perihal, tanggal:values.tanggal, dibuatOleh:values.dibuatOleh, sumber:"manual", nomorOverride:null });
       draft.surats.sort(function(a,b){ return b.urut-a.urut; });
       if(!msg) msg = "Nomor "+nomorText+" berhasil diterbitkan.";
     });
@@ -1329,39 +1503,109 @@ function App(){
   }
 
   async function handleSubmitSurat(values){
-    if(editingId){
-      mutateS(function(draft){
-        const s = draft.surats.find(function(x){ return x.id===editingId; });
-        if(s){ s.kodeId=values.kodeId; s.tanggal=values.tanggal; s.tujuan=values.tujuan; s.perihal=values.perihal; s.dibuatOleh=values.dibuatOleh; }
-      });
-      setModal(null); setEditingId(null);
-      showToast("Perubahan tersimpan.");
-      return;
-    }
     const current = sRef.current;
-    const kodeObjForPush = kodeOf(current, values.kodeId);
-    const appsUrl = (current.settings.appsScriptUrl||"").trim();
-    if(appsUrl && kodeObjForPush){
+
+    if(editingId){
+      const existing = current.surats.find(function(x){ return x.id===editingId; });
+      if(!masterMode || !existing){
+        mutateS(function(draft){
+          const s = draft.surats.find(function(x){ return x.id===editingId; });
+          if(s){ s.kodeId=values.kodeId; s.tanggal=values.tanggal; s.tujuan=values.tujuan; s.perihal=values.perihal; s.dibuatOleh=values.dibuatOleh; }
+        });
+        setModal(null); setEditingId(null);
+        showToast("Perubahan tersimpan.");
+        return;
+      }
+      // Mode master: nomor TIDAK dihitung ulang dari kolom No (No & Nomor Surat
+      // adalah dua hal terpisah) — angka urut di belakang nomor diambil dari teks
+      // Nomor Surat yang sudah ada, hanya segmen kode klasifikasi yang bisa berubah.
       setSubmittingSurat(true);
-      const hasil = await requestNomorFromSheet(current, kodeObjForPush.kode, values.tujuan, values.tanggal, values.perihal);
+      const parsedExisting = parseNomorRaw(existing.nomorOverride, current.settings.instansiKode);
+      const seqForNomor = parsedExisting ? parsedExisting.urut : existing.urut;
+      const nomorBaru = nomorSurat(current, seqForNomor, values.kodeId);
+      const hasil = await callSheetAction(current, "update", { id: existing.id, tujuan:values.tujuan, tanggal: fmtTanggal(values.tanggal), perihal:values.perihal, nomor: nomorBaru });
       setSubmittingSurat(false);
       if(hasil.ok){
-        finalizeNewSurat(hasil.urut, values.kodeId, hasil.nomor, values.tujuan, values.perihal, values.tanggal, values.dibuatOleh,
-          "Nomor "+hasil.nomor+" berhasil diterbitkan & tersinkron ke sheet.");
+        // Terapkan langsung ke tampilan (tidak menunggu fetch ulang) supaya cepat;
+        // sinkron ulang tetap jalan di latar belakang untuk jaga-jaga.
+        mutateS(function(draft){
+          const s = draft.surats.find(function(x){ return x.id===editingId; });
+          if(s){ s.kodeId=values.kodeId; s.tanggal=values.tanggal; s.tujuan=values.tujuan; s.perihal=values.perihal; s.nomorOverride=nomorBaru; }
+        });
+        setModal(null); setEditingId(null);
+        showToast("Perubahan tersimpan & tersinkron ke Google Sheet.");
+        refreshFromSheet(true);
       } else {
-        finalizeNewSurat(null, values.kodeId, null, values.tujuan, values.perihal, values.tanggal, values.dibuatOleh,
-          "Nomor diterbitkan secara lokal (gagal terhubung ke sheet). Sinkronkan manual nanti.");
+        showNotice("Gagal Sinkron ke Sheet", 'Perubahan BELUM disimpan supaya data SIMORIS tetap sama persis dengan Google Sheet.\n\n'+
+          'Kemungkinan penyebab: perangkat tidak terhubung ke internet, URL Apps Script salah/belum diperbarui ke versi terbaru, atau baris ini sudah dihapus manual di sheet.\n\n'+
+          'Coba lagi setelah memastikan koneksi internet aktif.'+(hasil.error?('\n\nDetail teknis: '+hasil.error):''));
       }
+      return;
+    }
+
+    if(!masterMode){
+      finalizeNewSuratLocal(values);
+      return;
+    }
+
+    // Mode master: nomor HARUS diminta & dikonfirmasi oleh Google Sheet (lewat Apps
+    // Script) supaya tidak pernah ada nomor "tebakan" lokal yang bisa bentrok.
+    const kodeObjForPush = kodeOf(current, values.kodeId);
+    setSubmittingSurat(true);
+    const hasil = await callSheetAction(current, "add", {
+      kode: kodeObjForPush ? kodeObjForPush.kode : "",
+      instansi: current.settings.instansiKode,
+      digit: current.settings.digit,
+      tujuan: values.tujuan, tanggal: fmtTanggal(values.tanggal), perihal: values.perihal
+    });
+    setSubmittingSurat(false);
+    if(hasil.ok && typeof hasil.id === "string"){
+      // Terapkan langsung dari hasil respons (tidak menunggu fetch ulang) supaya
+      // terasa instan; sinkron ulang tetap jalan di latar belakang.
+      mutateS(function(draft){
+        const parsedResult = parseNomorRaw(hasil.nomor, draft.settings.instansiKode);
+        const finalUrut = parsedResult ? parsedResult.urut : (Number(hasil.no) || (draft.counter + 1));
+        if(finalUrut > draft.counter) draft.counter = finalUrut;
+        draft.surats.unshift({
+          id: hasil.id, urut: finalUrut, kodeId: values.kodeId,
+          tujuan: values.tujuan, perihal: values.perihal, tanggal: values.tanggal,
+          dibuatOleh:"", sumber:"synced", nomorOverride: hasil.nomor
+        });
+        draft.surats.sort(function(a,b){ return b.urut-a.urut; });
+      });
+      setModal(null); setEditingId(null); setPage(1);
+      showToast("Nomor "+hasil.nomor+" berhasil diterbitkan & tersimpan ke Google Sheet.");
+      refreshFromSheet(true);
+    } else if(hasil.ok){
+      showNotice("Skrip Apps Script Belum Diperbarui",
+        'SIMORIS berhasil terhubung ke Apps Script, tetapi responsnya bukan format yang diharapkan — tandanya skrip yang ter-deploy masih versi lama.\n\n'+
+        'Nomor surat TIDAK diterbitkan supaya tidak ada nomor ganda/salah format.\n\n'+
+        'Perbaikan: buka Google Sheet → Extensions → Apps Script → salin ulang skrip terbaru dari "Kelola Kode" → Deploy → Manage deployments → ikon pensil → Version: "New version" → Deploy.');
     } else {
-      finalizeNewSurat(null, values.kodeId, null, values.tujuan, values.perihal, values.tanggal, values.dibuatOleh);
+      showNotice("Gagal Terhubung ke Google Sheet", 'Nomor surat BELUM diterbitkan karena SIMORIS tidak berhasil menghubungi Google Sheet — ini disengaja, supaya tidak ada nomor ganda/bentrok.\n\n'+
+        'Kemungkinan penyebab:\n1. Perangkat ini sedang tidak terhubung ke internet.\n2. URL Apps Script di "Kelola Kode" salah atau deployment-nya belum di-"Anyone".\n\n'+
+        'Periksa koneksi lalu coba terbitkan lagi.'+(hasil.error?('\n\nDetail teknis: '+hasil.error):''));
     }
   }
 
   function handleDelete(s){
-    showConfirm('Hapus surat "'+displayNomor(sRef.current, s)+'"? Tindakan ini tidak dapat dibatalkan.', function(){
-      mutateS(function(draft){ draft.surats = draft.surats.filter(function(x){ return x.id!==s.id; }); });
+    showConfirm('Hapus surat "'+displayNomor(sRef.current, s)+'"? Tindakan ini tidak dapat dibatalkan.', async function(){
+      if(!masterMode){
+        mutateS(function(draft){ draft.surats = draft.surats.filter(function(x){ return x.id!==s.id; }); });
+        setModal(null);
+        showToast("Surat dihapus.");
+        return;
+      }
       setModal(null);
-      showToast("Surat dihapus.");
+      const hasil = await callSheetAction(sRef.current, "delete", { id: s.id });
+      if(hasil.ok){
+        mutateS(function(draft){ draft.surats = draft.surats.filter(function(x){ return x.id!==s.id; }); });
+        showToast("Surat dihapus & tersinkron ke Google Sheet.");
+        refreshFromSheet(true);
+      } else {
+        showNotice("Gagal Sinkron ke Sheet", 'Surat BELUM dihapus supaya data SIMORIS tetap sama persis dengan Google Sheet.\n\n'+
+          'Periksa koneksi internet lalu coba lagi.'+(hasil.error?('\n\nDetail teknis: '+hasil.error):''));
+      }
     });
   }
 
@@ -1370,9 +1614,17 @@ function App(){
 
   /* ---------- Ekspor / cetak ---------- */
 
-  function doExportExcel(){ if(!exportExcelFile(sRef.current, filtered)) showNotice("Pustaka Belum Siap","Pustaka Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman."); }
+  async function doExportExcel(){
+    showToast("Menyiapkan file Excel...");
+    const ok = await exportExcelFile(sRef.current, filtered);
+    if(!ok) showNotice("Gagal Memuat Pustaka","Pustaka Excel gagal diambil dari internet. Periksa koneksi Anda lalu coba lagi.");
+  }
   function doExportCsv(){ exportCsvFile(sRef.current, filtered); }
-  function doExportPdf(){ if(!exportPdfFile(sRef.current, filtered)) showNotice("Pustaka Belum Siap","Pustaka PDF belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman."); }
+  async function doExportPdf(){
+    showToast("Menyiapkan file PDF...");
+    const ok = await exportPdfFile(sRef.current, filtered);
+    if(!ok) showNotice("Gagal Memuat Pustaka","Pustaka PDF gagal diambil dari internet. Periksa koneksi Anda lalu coba lagi.");
+  }
   function doPrint(){ window.print(); }
   function doBackupJson(){ exportJsonBackup(sRef.current); }
 
@@ -1416,7 +1668,7 @@ function App(){
       showNotice("Format Tidak Dikenali",'Struktur file JSON tidak dikenali. Gunakan file hasil tombol "Cadangkan".'); return;
     }
     showConfirm("Menimpa seluruh data saat ini ("+sRef.current.surats.length+" surat) dengan isi file cadangan ("+data.surats.length+" surat)?", function(){
-      if(!data.settings) data.settings = { instansiKode:"W.9", digit:3, googleSheetUrl:"", appsScriptUrl:"" };
+      if(!data.settings) data.settings = { instansiKode:"W.9", digit:3, appsScriptUrl:"" };
       data.surats.sort(function(a,b){ return b.urut-a.urut; });
       setS(data);
       setPage(1);
@@ -1435,67 +1687,89 @@ function App(){
     showToast(summary.ditambahkan+" surat diimpor"+(summary.dilewati?", "+summary.dilewati+" dilewati (sudah ada)":"")+".");
   }
 
-  /* ---------- Google Sheet ---------- */
+  /* ---------- Google Sheet: sheet = MASTER, SIMORIS jadi cermin persis ---------- */
 
-  function syncFromGoogleSheetRows(rows){
-    if(rows.length < 2){ showNotice("Sheet Kosong","Sheet tidak berisi data yang bisa disinkronkan."); return; }
-    const cols = detectColumns(rows);
-    if(cols.idxPerihal === -1){ showNotice("Format Tidak Dikenali",'Kolom "Perihal" tidak ditemukan di sheet ini. Pastikan sheet memiliki kolom Perihal seperti pada format spreadsheet sebelumnya.'); return; }
-    const parsedRows = parseRowsToSurats(rows, cols);
-    if(!parsedRows.length){
-      const hadBefore = sRef.current.surats.some(function(s){ return s.sumber==="sheet"; });
-      if(hadBefore){
-        showNotice("Refresh Dibatalkan",'Sheet tampak kosong (tidak ada baris data yang valid). Untuk mencegah kehilangan data, refresh dibatalkan dan data sebelumnya TIDAK diubah.\n\nJika sheet memang sengaja dikosongkan, hapus manual lewat "Hapus Semua Data" di Kelola Kode.');
-        return;
+  // Mengubah baris hasil action=list dari Apps Script menjadi data surat SIMORIS,
+  // lalu MENGGANTI TOTAL S.surats — supaya jumlah & isi di SIMORIS selalu identik
+  // dengan yang ada di Google Sheet saat itu (tidak pernah menumpuk/dobel walau
+  // di-refresh berkali-kali, dan baris yang diinput manual di sheet ikut muncul).
+  // Kolom "No" dan "Nomor Surat" TIDAK dihitung ulang — ditampilkan apa adanya
+  // persis seperti di sheet (sheet adalah satu-satunya sumber kebenaran).
+  function applySheetListToDraft(draft, sheetRows){
+    let maxTrailing = 0;
+    const fresh = sheetRows.map(function(r, idx){
+      const tanggal = parseTanggalIndo(r.tanggal) || isoToday(0);
+      const parsed = parseNomorRaw(r.nomor, draft.settings.instansiKode);
+      let kodeObj, urut;
+      if(parsed){
+        // Sumber kebenaran utama: angka yang tertulis di teks Nomor Surat
+        // itu sendiri (mis. "...-014" → 14) — BUKAN kolom "No", yang untuk
+        // data lama/legacy sering cuma posisi baris (1,2,3,4...) dan bisa
+        // berbeda dari nomor urut resmi yang sebenarnya tercetak di surat.
+        kodeObj = ensureKodeInDraft(draft, parsed.kodeStr);
+        urut = parsed.urut;
+        if(parsed.urut > maxTrailing) maxTrailing = parsed.urut;
+      } else {
+        // Baris tanpa Nomor Surat yang bisa diurai (jarang, mis. baris
+        // kosong/rusak) — pakai kolom "No" HANYA sebagai cadangan terakhir,
+        // dengan penjagaan supaya "" (kosong) tidak salah kebaca sebagai 0.
+        kodeObj = ensureKodeInDraft(draft, "SHEET");
+        const noNum = Number(r.no);
+        urut = (r.no !== "" && !isNaN(noNum) && noNum > 0) ? noNum : (idx+1);
       }
-    }
-    mutateS(function(draft){
-      let posCounter=0, maxUrutSheet=0;
-      const fresh = parsedRows.map(function(pr){
-        posCounter++;
-        const tanggal = parseTanggalIndo(pr.tanggalRaw) || isoToday(0);
-        let kodeObj=null, urut=null;
-        const parsed = parseNomorRaw(pr.nomorRaw);
-        if(parsed){ urut=parsed.urut; kodeObj=ensureKodeInDraft(draft, parsed.kodeStr); }
-        if(!kodeObj && pr.kodeExplicit) kodeObj = ensureKodeInDraft(draft, pr.kodeExplicit);
-        if(!kodeObj) kodeObj = ensureKodeInDraft(draft, "SHEET");
-        if(urut===null) urut = posCounter;
-        if(urut>maxUrutSheet) maxUrutSheet=urut;
-        return { id: uid()+posCounter, urut:urut, kodeId:kodeObj.id, tujuan:pr.tujuan, perihal:pr.perihal, tanggal:tanggal, dibuatOleh:"", sumber:"sheet", nomorOverride: pr.nomorRaw||null };
-      });
-      if(maxUrutSheet > draft.counter) draft.counter = maxUrutSheet;
-      draft.surats = draft.surats.filter(function(s){ return s.sumber!=="sheet"; }).concat(fresh);
-      draft.surats.sort(function(a,b){ return b.urut-a.urut; });
+      return {
+        id: r.id, sheetNo: r.no, urut: urut,
+        kodeId: kodeObj.id, tujuan: r.tujuan||"", perihal: r.perihal||"", tanggal: tanggal,
+        dibuatOleh:"", sumber:"synced", nomorOverride: r.nomor||null
+      };
     });
-    setPage(1);
-    showToast("Sinkron selesai — "+parsedRows.length+" surat dari Google Sheet.");
+    if(maxTrailing > draft.counter) draft.counter = maxTrailing;
+    // Urutkan menurun berdasarkan nomor urut ASLI (bukan sekadar membalik
+    // posisi fisik baris di sheet) — supaya tabel SIMORIS selalu konsisten
+    // secara angka dengan sheet, walau baris di sheet tidak tersusun rapi.
+    fresh.sort(function(a,b){ return b.urut - a.urut; });
+    draft.surats = fresh;
   }
 
-  async function handleRefreshSheet(overrideUrl){
-    const raw = (overrideUrl != null ? overrideUrl : (sRef.current.settings.googleSheetUrl||"")).trim();
-    if(!raw){
-      showNotice("Tautan Belum Diatur",'Tautan Google Sheet belum diatur.\n\nBuka "Kelola Kode" → bagian "Sumber data Google Sheet" untuk mengaturnya terlebih dahulu.');
-      setModal("kelola");
+  async function refreshFromSheet(silent){
+    const current = sRef.current;
+    if(!(current.settings.appsScriptUrl||"").trim()){
+      if(!silent){
+        showNotice("Belum Diatur",'URL Apps Script (Google Sheet) belum diatur.\n\nBuka "Kelola Kode" → bagian "Sinkron Google Sheet" untuk mengaturnya terlebih dahulu.');
+        setModal("kelola");
+      }
       return;
     }
-    const candidates = buildCandidateCsvUrls(raw);
-    if(!candidates.length){ showNotice("Tautan Tidak Dikenali",'Tautan Google Sheet tidak dikenali.\n\nTempel tautan "Bagikan" biasa dari Google Sheets, contoh:\nhttps://docs.google.com/spreadsheets/d/XXXXXXXX/edit'); return; }
     setRefreshing(true);
-    try{
-      const text = await tryFetchCsv(candidates, 15000);
-      syncFromGoogleSheetRows(parseCsv(text));
-    }catch(err){
-      const isTimeout = err && err.name === "AbortError";
-      showNotice("Gagal Refresh",'Gagal mengambil data dari Google Sheet'+(isTimeout?' (waktu tunggu habis, koneksi terlalu lambat)':'')+'.\n\n'+
+    const hasil = await callSheetAction(current, "list", {}, 20000);
+    setRefreshing(false);
+    if(hasil.ok && Array.isArray(hasil.rows)){
+      mutateS(function(draft){ applySheetListToDraft(draft, hasil.rows); });
+      setPage(1);
+      if(!silent) showToast("Sinkron selesai — "+hasil.rows.length+" surat, sama persis dengan Google Sheet.");
+    } else if(hasil.ok && !Array.isArray(hasil.rows)){
+      // Respons "ok" tapi bentuknya tidak sesuai action=list -> skrip Apps Script
+      // yang terpasang masih versi LAMA. Jangan terapkan apa pun ke data lokal.
+      showNotice("Skrip Apps Script Belum Diperbarui",
+        'SIMORIS berhasil terhubung ke Apps Script, tetapi responsnya bukan format daftar surat — tandanya skrip yang ter-deploy masih versi lama.\n\n'+
+        'Perbaikan: buka Google Sheet → Extensions → Apps Script → salin ulang skrip terbaru dari "Kelola Kode" di SIMORIS → Deploy → Manage deployments → ikon pensil → Version: "New version" → Deploy.\n\n'+
+        'Data di SIMORIS TIDAK diubah supaya aman.');
+    } else if(!silent){
+      showNotice("Gagal Sinkron",'Gagal mengambil data dari Google Sheet.\n\n'+
         'Kemungkinan penyebab:\n'+
-        '1. Sheet belum dibagikan sebagai "Siapa saja yang memiliki tautan → Dapat melihat" (klik Bagikan di Google Sheets, lalu ubah akses umum).\n'+
-        '2. Tautan yang ditempel salah, sudah tidak berlaku, atau bukan tautan Google Sheets.\n'+
+        '1. URL Apps Script salah atau deployment belum diatur ke akses "Anyone".\n'+
+        '2. Skrip di Apps Script belum diperbarui ke versi terbaru (salin ulang dari "Kelola Kode").\n'+
         '3. Perangkat ini sedang tidak terhubung ke internet.\n\n'+
-        'Detail teknis: '+(err && err.message ? err.message : String(err)));
-    }finally{
-      setRefreshing(false);
+        (hasil.error ? ('Detail teknis: '+hasil.error) : ''));
     }
   }
+
+  // Sinkron otomatis sekali saat aplikasi dibuka, kalau mode master aktif —
+  // supaya pengguna tidak perlu klik Refresh manual setiap kali masuk.
+  useEffect(function(){
+    if(authed && masterMode) refreshFromSheet(true);
+    // eslint-disable-next-line
+  }, [authed]);
 
   /* ---------- Hapus semua ---------- */
 
@@ -1533,13 +1807,14 @@ function App(){
           search={search} onSearch={function(v){ setSearch(v); setPage(1); }}
           kodeFilter={kodeFilter} onKodeFilter={function(v){ setKodeFilter(v); setPage(1); }}
           aktifKodeList={aktifKode(S)}
-          onRefreshSheet={function(){ handleRefreshSheet(); }} refreshing={refreshing}
+          onRefreshSheet={function(){ refreshFromSheet(false); }} refreshing={refreshing} masterMode={masterMode}
           onImportClick={function(){ fileInputRef.current && fileInputRef.current.click(); }}
           fileInputRef={fileInputRef} onFileChange={handleFileChange}
           downloadMenuOpen={downloadMenuOpen} setDownloadMenuOpen={setDownloadMenuOpen}
           onExportExcel={doExportExcel} onExportCsv={doExportCsv} onExportPdf={doExportPdf} onPrint={doPrint} onBackupJson={doBackupJson}
+          masterMode={masterMode}
         />
-        <Banner/>
+        <Banner masterMode={masterMode}/>
         <SuratTable
           S={S} rows={rows} pageInfo={{ total: filtered.length }}
           onRowClick={openDetail} onEdit={openEdit} onDelete={handleDelete}
@@ -1552,7 +1827,8 @@ function App(){
         open={modal==="kelola"} S={S} onClose={function(){ setModal(null); }} mutateS={mutateS}
         showToast={showToast} showNotice={showNotice} showConfirm={showConfirm}
         onOpenHapusSemua={function(){ setModal("hapusSemua"); }}
-        onTestRefresh={function(url){ handleRefreshSheet(url); }}
+        onSaveAndRefresh={function(){ refreshFromSheet(false); }}
+        masterMode={masterMode}
       />
       <DetailModal open={modal==="detail"} surat={detailSurat} S={S} onClose={closeDetail} onEdit={function(id){ setEditingId(id); setModal("surat"); }}/>
       <ConfirmModal open={modal==="confirm"} message={confirmMsg} onYes={function(){ setModal(null); if(confirmAction) confirmAction(); }} onNo={function(){ setModal(null); setConfirmAction(null); }}/>
