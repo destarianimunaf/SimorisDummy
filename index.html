@@ -287,17 +287,23 @@ const DEFAULT_KODE = [{ id:1, kode:"UM", nama:"Umum", warna:"emerald", aktif:tru
 const BULAN_ID = { "januari":0,"februari":1,"maret":2,"april":3,"mei":4,"juni":5,"juli":6,"agustus":7,"september":8,"oktober":9,"november":10,"desember":11 };
 const BULAN_NAMA = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
-// Skrip Apps Script v5 — Google Sheet menjadi database MASTER.
+// Skrip Apps Script v7 — Google Sheet menjadi database MASTER.
 // PENTING: kolom data di sheet Anda dimulai dari kolom B (kolom A dibiarkan
 // kosong), jadi skrip ini SELALU membaca/menulis mulai kolom B, TIDAK PERNAH
 // menyentuh kolom A. Kolom sheet: B=No, C=Tujuan Surat, D=Tanggal Surat,
 // E=Perihal, F=Nomor Surat Keluar/Surat Perintah, G=ID (kolom tersembunyi baru,
 // JANGAN diisi manual — diisi otomatis oleh skrip untuk menandai tiap baris).
-// Nomor urut (kolom B) dan angka di belakang Nomor Surat (kolom F) SENGAJA
-// dibuat SELALU SAMA untuk setiap surat baru yang diterbitkan dari SIMORIS —
-// keduanya dihitung dari jumlah baris data yang sudah ada + 1, dihitung ULANG
-// LANGSUNG dari sheet setiap kali (tidak pakai penghitung tersimpan terpisah
-// yang bisa "nyangkut"), supaya selalu cocok dengan data yang sebenarnya ada.
+// Nomor urut (kolom B) dan angka di belakang Nomor Surat (kolom F) SELALU SAMA
+// untuk setiap surat baru dari SIMORIS — dihitung dari POSISI baris terakhir
+// (metadata, super cepat — tidak lagi membaca & memindai ribuan sel satu per
+// satu seperti versi sebelumnya) supaya "Terbitkan Nomor" terasa jauh lebih
+// cepat, terutama untuk sheet berisi ribuan baris.
+// Angka dipadatkan dengan nol di depan TANPA PERNAH memenggal digit — kalau
+// jumlah surat sudah melebihi pengaturan "Digit Nomor", angkanya tetap ditulis
+// utuh (mis. 3238 tidak akan pernah jadi "238").
+// Aksi "list" (dipakai tombol Refresh) TIDAK memakai kunci antrean (lock) sama
+// sekali karena sifatnya cuma membaca — supaya Refresh tidak pernah harus
+// menunggu proses tulis lain selesai dulu.
 // Baris yang diinput manual langsung di Google Sheet otomatis dikenali (skrip
 // mengisi kolom ID-nya sendiri saat "list" dipanggil) — SIMORIS selalu
 // mencerminkan ulang SELURUH isi sheet setiap sinkron, jadi tidak akan dobel.
@@ -305,15 +311,18 @@ const BULAN_NAMA = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Ag
 // dialamatkan lewat ID di kolom G, BUKAN lewat kolom No, supaya tetap benar
 // walau baris disisipkan/diurutkan ulang manual di Sheets.
 const APPS_SCRIPT_SNIPPET =
-'function doGet(e) {\n' +
-'  var lock = LockService.getScriptLock();\n' +
-'  lock.waitLock(15000);\n' +
-'  try {\n' +
-'    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
-'    var p = e.parameter;\n' +
-'    var action = p.action || "list";\n' +
+'var SCRIPT_VERSION = 7;\n' +
 '\n' +
-'    if (action === "list") return doList(sheet);\n' +
+'function doGet(e) {\n' +
+'  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
+'  var p = e.parameter;\n' +
+'  var action = p.action || "list";\n' +
+'\n' +
+'  if (action === "list") return doList(sheet); // baca saja, TANPA lock, supaya cepat\n' +
+'\n' +
+'  var lock = LockService.getScriptLock();\n' +
+'  lock.waitLock(10000);\n' +
+'  try {\n' +
 '    if (action === "add") return doAdd(sheet, p);\n' +
 '    if (action === "update") return doUpdate(sheet, p);\n' +
 '    if (action === "delete") return doDelete(sheet, p);\n' +
@@ -342,7 +351,8 @@ const APPS_SCRIPT_SNIPPET =
 'function doAdd(sheet, p) {\n' +
 '  var nextNo = nextCounter(sheet);\n' +
 '  var digit = Number(p.digit) || 3;\n' +
-'  var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" + ("0000"+nextNo).slice(-digit);\n' +
+'  var padded = String(nextNo); while (padded.length < digit) padded = "0" + padded;\n' +
+'  var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" + padded;\n' +
 '  var id = Utilities.getUuid();\n' +
 '  var newRow = sheet.getLastRow() + 1;\n' +
 '  sheet.getRange(newRow, 2, 1, 6).setValues([[nextNo, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor, id]]); // tulis ke B:G, kolom A tidak disentuh\n' +
@@ -374,18 +384,11 @@ const APPS_SCRIPT_SNIPPET =
 '}\n' +
 '\n' +
 'function nextCounter(sheet) {\n' +
-'  // Dihitung dari TOTAL baris data yang sudah ada + 1 — supaya kolom No dan\n' +
-'  // angka di belakang Nomor Surat SELALU sama untuk setiap surat baru, dan\n' +
-'  // selalu cocok dengan jumlah surat yang sebenarnya ada di sheet saat itu.\n' +
+'  // Dihitung dari POSISI baris terakhir (metadata, super cepat) — bukan\n' +
+'  // membaca isi ribuan sel satu per satu. Baris data = getLastRow()-1,\n' +
+'  // jadi nomor berikutnya = (getLastRow()-1)+1 = getLastRow().\n' +
 '  var last = sheet.getLastRow();\n' +
-'  if (last < 2) return 1;\n' +
-'  var vals = sheet.getRange(2, 2, last - 1, 4).getValues(); // B:E\n' +
-'  var count = 0;\n' +
-'  for (var i = 0; i < vals.length; i++) {\n' +
-'    var r = vals[i];\n' +
-'    if (r[0] || r[1] || r[2] || r[3]) count++;\n' +
-'  }\n' +
-'  return count + 1;\n' +
+'  return last < 2 ? 1 : last;\n' +
 '}\n' +
 '\n' +
 'function cellText(v) {\n' +
@@ -400,8 +403,10 @@ const APPS_SCRIPT_SNIPPET =
 '}\n' +
 '\n' +
 'function json(obj) {\n' +
+'  obj.version = SCRIPT_VERSION;\n' +
 '  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);\n' +
 '}';
+
 
 
 
@@ -424,7 +429,7 @@ function pad2(n){ n = String(n); return n.length<2 ? "0"+n : n; }
 
 function defaultState(){
   return {
-    settings:{ instansiKode:"W.9", digit:3, appsScriptUrl:"" },
+    settings:{ instansiKode:"W.9", digit:3, appsScriptUrl:"https://script.google.com/macros/s/AKfycbz8absBzparWZt8Fgukvh5YxT_Er16-bTUv3oM4F_bV-0jCc5YrWxP3U3HbMO1tUDZJ/exec" },
     counter:2,
     kodeList: DEFAULT_KODE,
     surats:[
@@ -548,11 +553,23 @@ function parseRowsToSurats(rows, cols){
 }
 function parseNomorRaw(nomorRaw, instansiKode){
   if(!nomorRaw) return null;
-  const trailMatch = String(nomorRaw).match(/(\d+)\s*$/);
+  const text = String(nomorRaw).trim();
+  const trailMatch = text.match(/(\d+)\s*$/);
   if(!trailMatch) return null;
   const urut = parseInt(trailMatch[1], 10);
-  let rest = nomorRaw.slice(0, nomorRaw.length - trailMatch[0].length);
+  let rest = text.slice(0, text.length - trailMatch[0].length);
   rest = rest.replace(/[.\-\s]+$/, ""); // buang pemisah sebelum angka, mis. "...-" atau "..."
+
+  // 1) Utamakan pola kode klasifikasi resmi seperti "UM.01.01" / "PB.01.02"
+  //    (huruf lalu kelompok titik-angka) — ambil kemunculan TERAKHIR di teks,
+  //    supaya kode instansi seperti "W.9" (cuma 1 huruf) tidak ikut terambil.
+  const dotMatches = rest.match(/[A-Za-z]{2,8}(?:\.\d{1,3}){1,3}/g);
+  if(dotMatches && dotMatches.length){
+    return { urut: urut, kodeStr: dotMatches[dotMatches.length-1].toUpperCase() };
+  }
+
+  // 2) Fallback untuk kode sederhana tanpa titik (mis. "UM" bawaan SIMORIS):
+  //    buang awalan kode instansi, sisanya dianggap kode klasifikasi.
   if(instansiKode){
     const ik = String(instansiKode).trim();
     if(ik && rest.toLowerCase().indexOf(ik.toLowerCase()) === 0) rest = rest.slice(ik.length);
@@ -1481,7 +1498,9 @@ function App(){
   function openTambah(){
     setEditingId(null);
     setModal("surat");
-    if(masterMode) refreshFromSheet(true); // segarkan di latar belakang supaya preview nomor akurat
+    // Tidak lagi menyinkron ulang seluruh data di sini — preview nomor sudah
+    // cukup akurat dari S.counter (dihitung dari total surat), dan menarik
+    // ratusan baris tiap kali form dibuka bikin terasa lambat.
   }
   function openEdit(id){ setEditingId(id); setModal("surat"); }
   function closeSuratModal(){ setModal(null); setEditingId(null); }
@@ -1517,24 +1536,22 @@ function App(){
         return;
       }
       // Mode master: nomor TIDAK dihitung ulang dari kolom No (No & Nomor Surat
-      // adalah dua hal terpisah) — angka urut di belakang nomor diambil dari teks
-      // Nomor Surat yang sudah ada, hanya segmen kode klasifikasi yang bisa berubah.
+      // adalah dua hal terpisah) — angka urut di belakang nomor mengikuti kolom
+      // No (B) di sheet apa adanya, hanya segmen kode klasifikasi yang berubah.
+      // Ini sekaligus memperbaiki teks Nomor Surat lama yang mungkin salah/terpotong.
       setSubmittingSurat(true);
-      const parsedExisting = parseNomorRaw(existing.nomorOverride, current.settings.instansiKode);
-      const seqForNomor = parsedExisting ? parsedExisting.urut : existing.urut;
-      const nomorBaru = nomorSurat(current, seqForNomor, values.kodeId);
+      const nomorBaru = nomorSurat(current, existing.urut, values.kodeId);
       const hasil = await callSheetAction(current, "update", { id: existing.id, tujuan:values.tujuan, tanggal: fmtTanggal(values.tanggal), perihal:values.perihal, nomor: nomorBaru });
       setSubmittingSurat(false);
       if(hasil.ok){
-        // Terapkan langsung ke tampilan (tidak menunggu fetch ulang) supaya cepat;
-        // sinkron ulang tetap jalan di latar belakang untuk jaga-jaga.
+        // Terapkan langsung ke tampilan dari hasil respons (tidak menarik ulang
+        // seluruh data) supaya terasa instan.
         mutateS(function(draft){
           const s = draft.surats.find(function(x){ return x.id===editingId; });
           if(s){ s.kodeId=values.kodeId; s.tanggal=values.tanggal; s.tujuan=values.tujuan; s.perihal=values.perihal; s.nomorOverride=nomorBaru; }
         });
         setModal(null); setEditingId(null);
         showToast("Perubahan tersimpan & tersinkron ke Google Sheet.");
-        refreshFromSheet(true);
       } else {
         showNotice("Gagal Sinkron ke Sheet", 'Perubahan BELUM disimpan supaya data SIMORIS tetap sama persis dengan Google Sheet.\n\n'+
           'Kemungkinan penyebab: perangkat tidak terhubung ke internet, URL Apps Script salah/belum diperbarui ke versi terbaru, atau baris ini sudah dihapus manual di sheet.\n\n'+
@@ -1560,11 +1577,10 @@ function App(){
     });
     setSubmittingSurat(false);
     if(hasil.ok && typeof hasil.id === "string"){
-      // Terapkan langsung dari hasil respons (tidak menunggu fetch ulang) supaya
-      // terasa instan; sinkron ulang tetap jalan di latar belakang.
+      // Terapkan langsung dari hasil respons (tidak menarik ulang seluruh data)
+      // supaya terasa instan.
       mutateS(function(draft){
-        const parsedResult = parseNomorRaw(hasil.nomor, draft.settings.instansiKode);
-        const finalUrut = parsedResult ? parsedResult.urut : (Number(hasil.no) || (draft.counter + 1));
+        const finalUrut = Number(hasil.no) || (draft.counter + 1);
         if(finalUrut > draft.counter) draft.counter = finalUrut;
         draft.surats.unshift({
           id: hasil.id, urut: finalUrut, kodeId: values.kodeId,
@@ -1575,7 +1591,6 @@ function App(){
       });
       setModal(null); setEditingId(null); setPage(1);
       showToast("Nomor "+hasil.nomor+" berhasil diterbitkan & tersimpan ke Google Sheet.");
-      refreshFromSheet(true);
     } else if(hasil.ok){
       showNotice("Skrip Apps Script Belum Diperbarui",
         'SIMORIS berhasil terhubung ke Apps Script, tetapi responsnya bukan format yang diharapkan — tandanya skrip yang ter-deploy masih versi lama.\n\n'+
@@ -1601,7 +1616,6 @@ function App(){
       if(hasil.ok){
         mutateS(function(draft){ draft.surats = draft.surats.filter(function(x){ return x.id!==s.id; }); });
         showToast("Surat dihapus & tersinkron ke Google Sheet.");
-        refreshFromSheet(true);
       } else {
         showNotice("Gagal Sinkron ke Sheet", 'Surat BELUM dihapus supaya data SIMORIS tetap sama persis dengan Google Sheet.\n\n'+
           'Periksa koneksi internet lalu coba lagi.'+(hasil.error?('\n\nDetail teknis: '+hasil.error):''));
@@ -1693,42 +1707,42 @@ function App(){
   // lalu MENGGANTI TOTAL S.surats — supaya jumlah & isi di SIMORIS selalu identik
   // dengan yang ada di Google Sheet saat itu (tidak pernah menumpuk/dobel walau
   // di-refresh berkali-kali, dan baris yang diinput manual di sheet ikut muncul).
-  // Kolom "No" dan "Nomor Surat" TIDAK dihitung ulang — ditampilkan apa adanya
-  // persis seperti di sheet (sheet adalah satu-satunya sumber kebenaran).
+  // Urutan (No) SELALU diikuti apa adanya dari kolom B di sheet — bukan ditebak
+  // dari teks Nomor Surat, karena teks itu bisa memuat angka yang salah/lama.
   function applySheetListToDraft(draft, sheetRows){
-    let maxTrailing = 0;
     const fresh = sheetRows.map(function(r, idx){
       const tanggal = parseTanggalIndo(r.tanggal) || isoToday(0);
+      const noNum = Number(r.no);
+      // Sumber kebenaran utama untuk urutan: kolom "No" (B) di sheet apa adanya.
+      const urut = (r.no !== "" && !isNaN(noNum) && noNum > 0) ? noNum : (idx+1);
+      // Kode klasifikasi tetap diurai dari teks Nomor Surat (hanya dipakai
+      // untuk label/warna & filter, tidak memengaruhi urutan/penomoran).
       const parsed = parseNomorRaw(r.nomor, draft.settings.instansiKode);
-      let kodeObj, urut;
-      if(parsed){
-        // Sumber kebenaran utama: angka yang tertulis di teks Nomor Surat
-        // itu sendiri (mis. "...-014" → 14) — BUKAN kolom "No", yang untuk
-        // data lama/legacy sering cuma posisi baris (1,2,3,4...) dan bisa
-        // berbeda dari nomor urut resmi yang sebenarnya tercetak di surat.
-        kodeObj = ensureKodeInDraft(draft, parsed.kodeStr);
-        urut = parsed.urut;
-        if(parsed.urut > maxTrailing) maxTrailing = parsed.urut;
-      } else {
-        // Baris tanpa Nomor Surat yang bisa diurai (jarang, mis. baris
-        // kosong/rusak) — pakai kolom "No" HANYA sebagai cadangan terakhir,
-        // dengan penjagaan supaya "" (kosong) tidak salah kebaca sebagai 0.
-        kodeObj = ensureKodeInDraft(draft, "SHEET");
-        const noNum = Number(r.no);
-        urut = (r.no !== "" && !isNaN(noNum) && noNum > 0) ? noNum : (idx+1);
-      }
+      const kodeObj = parsed ? ensureKodeInDraft(draft, parsed.kodeStr) : ensureKodeInDraft(draft, "SHEET");
       return {
         id: r.id, sheetNo: r.no, urut: urut,
         kodeId: kodeObj.id, tujuan: r.tujuan||"", perihal: r.perihal||"", tanggal: tanggal,
         dibuatOleh:"", sumber:"synced", nomorOverride: r.nomor||null
       };
     });
-    if(maxTrailing > draft.counter) draft.counter = maxTrailing;
-    // Urutkan menurun berdasarkan nomor urut ASLI (bukan sekadar membalik
-    // posisi fisik baris di sheet) — supaya tabel SIMORIS selalu konsisten
-    // secara angka dengan sheet, walau baris di sheet tidak tersusun rapi.
+    // Nomor berikutnya = total surat saat ini + 1 — PERSIS rumus yang sama
+    // dipakai server (Apps Script), supaya preview "Nomor surat akan menjadi"
+    // selalu cocok dengan yang benar-benar akan ditulis ke sheet.
+    draft.counter = fresh.length;
+    // Urutkan menurun berdasarkan kolom No (B) — bukan sekadar membalik posisi
+    // fisik baris di sheet — supaya tabel SIMORIS tetap konsisten walau baris
+    // di sheet tidak tersusun rapi.
     fresh.sort(function(a,b){ return b.urut - a.urut; });
     draft.surats = fresh;
+    // Buang kode klasifikasi hasil deteksi otomatis dari sinkron-sinkron
+    // sebelumnya yang sekarang sudah tidak dipakai surat manapun (mis. bekas
+    // salah baca kolom dulu) — supaya daftar di "Kelola Kode Klasifikasi"
+    // tetap bersih. Kode yang ditambahkan manual oleh pengguna TIDAK disentuh.
+    const usedKodeIds = {};
+    fresh.forEach(function(s){ usedKodeIds[s.kodeId] = true; });
+    draft.kodeList = draft.kodeList.filter(function(k){
+      return k.nama !== "Impor otomatis" || usedKodeIds[k.id];
+    });
   }
 
   async function refreshFromSheet(silent){
