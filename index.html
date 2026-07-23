@@ -122,7 +122,7 @@
   }
   .toolbar input[type=text]:focus, .toolbar select:focus{ outline:none; border-color:var(--ink-600); box-shadow:0 0 0 3px rgba(44,76,124,.12); }
   .toolbar .search{ flex:1; min-width:220px; position:relative; }
-  .toolbar .search input{ width:100%; padding-left:34px; }
+  .toolbar .search input{ width:100%; padding-left:34px; padding-right:32px; }
   .toolbar .search svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--ink-400); pointer-events:none; }
   .toolbar select{ min-width:220px; }
   .toolbar-right{ display:flex; gap:8px; margin-left:auto; }
@@ -886,7 +886,7 @@ function Header({ count, onKelola, onTambah, onLogout }){
         </div>
         <div className="header-actions">
           <div className="count-box"><p>Surat tercatat</p><strong>{String(count).padStart(3,"0")}</strong></div>
-          <button className="btn btn-header-ghost" onClick={onKelola}><IconSettings size={14}/>Kelola Kode</button>
+          <button className="btn btn-header-ghost" id="btnKelola" onClick={onKelola}><IconSettings size={14}/>Kelola Kode</button>
           <button className="btn btn-segel" id="btnTambah" onClick={onTambah}><IconPlus size={14}/>Terbitkan Nomor</button>
           <button className="btn btn-header-muted" onClick={onLogout} title="Keluar"><IconLogout size={14}/></button>
         </div>
@@ -1858,9 +1858,10 @@ function App(){
     const hasil = await callSheetAction(current, "list", params, 30000);
     setRefreshing(false);
     if(hasil.ok && Array.isArray(hasil.rows)){
-      mutateS(function(draft){ applySheetListToDraft(draft, hasil.rows); });
+      const totalHint = typeof hasil.total==="number" ? hasil.total : hasil.rows.length;
+      mutateS(function(draft){ applySheetListToDraft(draft, hasil.rows, totalHint); });
       setPage(1);
-      setSheetInfo({ total: typeof hasil.total==="number" ? hasil.total : hasil.rows.length, partial: !!hasil.partial });
+      setSheetInfo({ total: totalHint, partial: !!hasil.partial });
       if(!silent){
         showToast(hasil.partial
           ? ("Dimuat "+hasil.rows.length+" surat terbaru dari total "+hasil.total+".")
