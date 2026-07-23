@@ -287,38 +287,41 @@ const DEFAULT_KODE = [{ id:1, kode:"UM", nama:"Umum", warna:"emerald", aktif:tru
 const BULAN_ID = { "januari":0,"februari":1,"maret":2,"april":3,"mei":4,"juni":5,"juli":6,"agustus":7,"september":8,"oktober":9,"november":10,"desember":11 };
 const BULAN_NAMA = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
-// Skrip Apps Script v7 — Google Sheet menjadi database MASTER.
+// Skrip Apps Script v8 — Google Sheet menjadi database MASTER.
 // PENTING: kolom data di sheet Anda dimulai dari kolom B (kolom A dibiarkan
 // kosong), jadi skrip ini SELALU membaca/menulis mulai kolom B, TIDAK PERNAH
 // menyentuh kolom A. Kolom sheet: B=No, C=Tujuan Surat, D=Tanggal Surat,
 // E=Perihal, F=Nomor Surat Keluar/Surat Perintah, G=ID (kolom tersembunyi baru,
 // JANGAN diisi manual — diisi otomatis oleh skrip untuk menandai tiap baris).
+// BARU (v8): aksi "list" bisa diberi parameter &count=100 untuk hanya mengambil
+// N baris TERBARU saja (cepat, dipakai saat SIMORIS pertama dibuka), atau tanpa
+// count sama sekali untuk mengambil SEMUA data (dipakai tombol "Muat Semua
+// Data"). Ada juga aksi "search" (&q=...) yang mencari di SELURUH baris
+// langsung di sisi Google Sheet dan cuma mengirim baris yang cocok balik ke
+// SIMORIS — jadi pencarian tetap cepat walau datanya ribuan baris, karena
+// tidak perlu mengunduh semuanya dulu ke aplikasi.
 // Nomor urut (kolom B) dan angka di belakang Nomor Surat (kolom F) SELALU SAMA
-// untuk setiap surat baru dari SIMORIS — dihitung dari POSISI baris terakhir
-// (metadata, super cepat — tidak lagi membaca & memindai ribuan sel satu per
-// satu seperti versi sebelumnya) supaya "Terbitkan Nomor" terasa jauh lebih
-// cepat, terutama untuk sheet berisi ribuan baris.
-// Angka dipadatkan dengan nol di depan TANPA PERNAH memenggal digit — kalau
-// jumlah surat sudah melebihi pengaturan "Digit Nomor", angkanya tetap ditulis
-// utuh (mis. 3238 tidak akan pernah jadi "238").
-// Aksi "list" (dipakai tombol Refresh) TIDAK memakai kunci antrean (lock) sama
-// sekali karena sifatnya cuma membaca — supaya Refresh tidak pernah harus
-// menunggu proses tulis lain selesai dulu.
+// untuk setiap surat baru dari SIMORIS — dihitung dari posisi baris terakhir
+// (metadata, super cepat). Angka dipadatkan dengan nol di depan TANPA PERNAH
+// memenggal digit (mis. 3238 tidak akan pernah jadi "238").
+// Aksi "list" dan "search" TIDAK memakai kunci antrean (lock) karena sifatnya
+// cuma membaca — supaya tidak pernah menunggu proses tulis lain selesai dulu.
 // Baris yang diinput manual langsung di Google Sheet otomatis dikenali (skrip
-// mengisi kolom ID-nya sendiri saat "list" dipanggil) — SIMORIS selalu
-// mencerminkan ulang SELURUH isi sheet setiap sinkron, jadi tidak akan dobel.
-// Mendukung 4 aksi (?action=...): list, add, update, delete — update/delete
-// dialamatkan lewat ID di kolom G, BUKAN lewat kolom No, supaya tetap benar
-// walau baris disisipkan/diurutkan ulang manual di Sheets.
+// mengisi kolom ID-nya sendiri) — SIMORIS selalu mencerminkan ulang isi sheet
+// setiap sinkron, jadi tidak akan dobel.
+// Mendukung aksi (?action=...): list, search, add, update, delete — update/
+// delete dialamatkan lewat ID di kolom G, BUKAN lewat kolom No, supaya tetap
+// benar walau baris disisipkan/diurutkan ulang manual di Sheets.
 const APPS_SCRIPT_SNIPPET =
-'var SCRIPT_VERSION = 7;\n' +
+'var SCRIPT_VERSION = 8;\n' +
 '\n' +
 'function doGet(e) {\n' +
 '  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
 '  var p = e.parameter;\n' +
 '  var action = p.action || "list";\n' +
 '\n' +
-'  if (action === "list") return doList(sheet); // baca saja, TANPA lock, supaya cepat\n' +
+'  if (action === "list") return doList(sheet, p); // baca saja, TANPA lock\n' +
+'  if (action === "search") return doSearch(sheet, p); // baca saja, TANPA lock\n' +
 '\n' +
 '  var lock = LockService.getScriptLock();\n' +
 '  lock.waitLock(10000);\n' +
@@ -332,10 +335,14 @@ const APPS_SCRIPT_SNIPPET =
 '  }\n' +
 '}\n' +
 '\n' +
-'function doList(sheet) {\n' +
+'function doList(sheet, p) {\n' +
 '  var last = sheet.getLastRow();\n' +
-'  if (last < 2) return json({ ok:true, rows:[] });\n' +
-'  var data = sheet.getRange(2, 2, last - 1, 6).getValues(); // B:G sekali baca\n' +
+'  if (last < 2) return json({ ok:true, rows:[], total:0, partial:false });\n' +
+'  var totalDataRows = last - 1;\n' +
+'  var count = Number(p && p.count) || 0;\n' +
+'  var n = (count > 0 && count < totalDataRows) ? count : totalDataRows;\n' +
+'  var startRow = last - n + 1;\n' +
+'  var data = sheet.getRange(startRow, 2, n, 6).getValues(); // B:G, cuma N baris terakhir\n' +
 '  var rows = [];\n' +
 '  var idChanged = false;\n' +
 '  for (var i = 0; i < data.length; i++) {\n' +
@@ -344,8 +351,25 @@ const APPS_SCRIPT_SNIPPET =
 '    if (!r[5]) { r[5] = Utilities.getUuid(); idChanged = true; }\n' +
 '    rows.push({ id:String(r[5]), no:cellText(r[0]), tujuan:cellText(r[1]), tanggal:fmtCell(r[2]), perihal:cellText(r[3]), nomor:cellText(r[4]) });\n' +
 '  }\n' +
-'  if (idChanged) sheet.getRange(2, 2, data.length, 6).setValues(data); // satu kali tulis balik ke B:G\n' +
-'  return json({ ok:true, rows:rows });\n' +
+'  if (idChanged) sheet.getRange(startRow, 2, data.length, 6).setValues(data); // tulis balik cuma bagian yang dibaca\n' +
+'  return json({ ok:true, rows:rows, total:totalDataRows, partial:(n < totalDataRows) });\n' +
+'}\n' +
+'\n' +
+'function doSearch(sheet, p) {\n' +
+'  var q = String((p && p.q) || "").toLowerCase().trim();\n' +
+'  var last = sheet.getLastRow();\n' +
+'  if (last < 2 || !q) return json({ ok:true, rows:[] });\n' +
+'  var data = sheet.getRange(2, 2, last - 1, 6).getValues();\n' +
+'  var rows = [];\n' +
+'  var limit = 300;\n' +
+'  for (var i = 0; i < data.length && rows.length < limit; i++) {\n' +
+'    var r = data[i];\n' +
+'    if (!r[0] && !r[1] && !r[3] && !r[4]) continue;\n' +
+'    var hay = (cellText(r[0])+" "+cellText(r[1])+" "+cellText(r[3])+" "+cellText(r[4])).toLowerCase();\n' +
+'    if (hay.indexOf(q) === -1) continue;\n' +
+'    rows.push({ id:String(r[5]||""), no:cellText(r[0]), tujuan:cellText(r[1]), tanggal:fmtCell(r[2]), perihal:cellText(r[3]), nomor:cellText(r[4]) });\n' +
+'  }\n' +
+'  return json({ ok:true, rows:rows, capped:(rows.length>=limit) });\n' +
 '}\n' +
 '\n' +
 'function doAdd(sheet, p) {\n' +
@@ -384,9 +408,6 @@ const APPS_SCRIPT_SNIPPET =
 '}\n' +
 '\n' +
 'function nextCounter(sheet) {\n' +
-'  // Dihitung dari POSISI baris terakhir (metadata, super cepat) — bukan\n' +
-'  // membaca isi ribuan sel satu per satu. Baris data = getLastRow()-1,\n' +
-'  // jadi nomor berikutnya = (getLastRow()-1)+1 = getLastRow().\n' +
 '  var last = sheet.getLastRow();\n' +
 '  return last < 2 ? 1 : last;\n' +
 '}\n' +
@@ -406,6 +427,7 @@ const APPS_SCRIPT_SNIPPET =
 '  obj.version = SCRIPT_VERSION;\n' +
 '  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);\n' +
 '}';
+
 
 
 
@@ -476,6 +498,27 @@ function ensureKodeInDraft(draft, kodeStr){
   const k = { id:uid(), kode:kodeStr, nama:"Impor otomatis", warna:WARNA_CYCLE[draft.kodeList.length % WARNA_CYCLE.length], aktif:true };
   draft.kodeList.push(k);
   return k;
+}
+
+// Mengubah baris hasil action=search (Apps Script) menjadi objek surat untuk
+// DITAMPILKAN SAJA — murni (tidak mengubah S.kodeList/S.surats sama sekali),
+// dipakai saat pencarian sisi server supaya hasilnya tidak ikut "mengotori"
+// data lokal yang sedang dimuat (mis. saat baru memuat 100 surat terbaru).
+function mapSheetRowsToDisplay(S, rows){
+  const list = rows.map(function(r){
+    const tanggal = parseTanggalIndo(r.tanggal) || isoToday(0);
+    const noNum = Number(r.no);
+    const urut = (r.no !== "" && !isNaN(noNum) && noNum > 0) ? noNum : 0;
+    const parsed = parseNomorRaw(r.nomor, S.settings.instansiKode);
+    let kodeId = null;
+    if(parsed){
+      const found = S.kodeList.find(function(k){ return k.kode.toLowerCase()===parsed.kodeStr.toLowerCase(); });
+      if(found) kodeId = found.id;
+    }
+    return { id:r.id, urut:urut, kodeId:kodeId, tujuan:r.tujuan||"", perihal:r.perihal||"", tanggal:tanggal, dibuatOleh:"", sumber:"synced", nomorOverride: r.nomor||null };
+  });
+  list.sort(function(a,b){ return b.urut - a.urut; });
+  return list;
 }
 
 /* ============================== IMPOR / EKSPOR ============================== */
@@ -747,12 +790,12 @@ function Toast({ message }){
   return <div className="toast"><IconCheck size={16}/><span>{message}</span></div>;
 }
 
-function Banner({ masterMode }){
+function Banner({ masterMode, sheetInfo }){
   return (
     <div className="banner">
       <IconInfo size={15}/>
       {masterMode
-        ? <span><b>Google Sheet adalah data master.</b> Semua yang tampil di sini persis sama dengan isi sheet — terbitkan, ubah, atau hapus surat di SIMORIS langsung tersinkron ke sana, dan sebaliknya lewat tombol "Refresh Google Sheet".</span>
+        ? <span><b>Google Sheet adalah data master.</b> Terbitkan, ubah, atau hapus surat di SIMORIS langsung tersinkron ke sana. Untuk menjaga aplikasi tetap ringan, yang otomatis dimuat cuma <b>100 surat terbaru</b>{sheetInfo && sheetInfo.total ? (" dari total "+sheetInfo.total) : ""} — pencarian tetap mencakup semua data (dicari langsung di sheet), atau klik <b>"Muat Semua Data"</b> kalau ingin melihat semuanya sekaligus.</span>
         : <span>Data tersimpan otomatis di peramban perangkat ini. Untuk memakai data yang sama di perangkat/komputer lain: unduh <b>Cadangkan (JSON)</b> di sini lalu <b>Impor Excel/CSV</b> file tersebut di perangkat lain, atau aktifkan sinkron Google Sheet lewat "Kelola Kode" supaya semua perangkat memakai data yang sama.</span>}
     </div>
   );
@@ -854,7 +897,8 @@ function Header({ count, onKelola, onTambah, onLogout }){
 
 function Toolbar({
   search, onSearch, kodeFilter, onKodeFilter, aktifKodeList,
-  onRefreshSheet, refreshing, onImportClick, fileInputRef, onFileChange,
+  onRefreshSheet, refreshing, onLoadAll, loadingAll, searching,
+  onImportClick, fileInputRef, onFileChange,
   downloadMenuOpen, setDownloadMenuOpen, onExportExcel, onExportCsv, onExportPdf, onPrint, onBackupJson, masterMode
 }){
   const wrapRef = useRef(null);
@@ -870,6 +914,7 @@ function Toolbar({
       <div className="search">
         <IconSearch size={15}/>
         <input type="text" placeholder="Cari perihal, tujuan, atau nomor surat..." value={search} onChange={function(e){ onSearch(e.target.value); }} />
+        {searching && <IconRefresh size={14} className="spin" style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"var(--ink-400)"}}/>}
       </div>
       <select value={kodeFilter} onChange={function(e){ onKodeFilter(e.target.value); }}>
         <option value="">Semua kode klasifikasi</option>
@@ -878,8 +923,14 @@ function Toolbar({
       <div className="toolbar-right">
         <button className="btn btn-segel" onClick={onRefreshSheet} disabled={refreshing}>
           {refreshing ? <IconRefresh size={14} className="spin"/> : <IconRefresh size={14}/>}
-          {refreshing ? "Memuat..." : (masterMode ? "Refresh Google Sheet" : "Sinkron Google Sheet")}
+          {refreshing ? "Memuat..." : (masterMode ? "Refresh Terbaru" : "Sinkron Google Sheet")}
         </button>
+        {masterMode && (
+          <button className="btn btn-ghost" onClick={onLoadAll} disabled={loadingAll || refreshing} title="Muat semua data dari Google Sheet (lebih lambat)">
+            {loadingAll ? <IconRefresh size={14} className="spin"/> : <IconDownload size={14}/>}
+            {loadingAll ? "Memuat semua..." : "Muat Semua Data"}
+          </button>
+        )}
         {!masterMode && (
           <React.Fragment>
             <button className="btn btn-ghost" onClick={onImportClick}><IconUpload size={14}/>Impor Excel/CSV</button>
@@ -1441,10 +1492,24 @@ function App(){
     setS(function(prev){ const next = cloneState(prev); mutator(next); return next; });
   }
 
+  const masterMode = !!(S.settings.appsScriptUrl||"").trim();
+
   const [search, setSearch] = useState("");
   const [kodeFilter, setKodeFilter] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+
+  // Info hasil sinkron terakhir: total surat di sheet & apakah yang dimuat cuma
+  // sebagian (100 terbaru) atau semuanya.
+  const [sheetInfo, setSheetInfo] = useState({ total:0, partial:false });
+  const [loadingAll, setLoadingAll] = useState(false);
+
+  // Pencarian sisi server: kalau mode master aktif, mengetik di kotak cari
+  // memanggil action=search di Apps Script (mencari di SELURUH baris sheet
+  // langsung di sana) supaya tidak perlu memuat ribuan baris dulu ke SIMORIS.
+  const [searchResults, setSearchResults] = useState(null); // null = tidak sedang mencari server
+  const [searching, setSearching] = useState(false);
+  const searchSeq = useRef(0);
 
   const [modal, setModal] = useState(null); // 'surat' | 'kelola' | 'detail' | 'confirm' | 'notice' | 'hapusSemua'
   const [editingId, setEditingId] = useState(null);
@@ -1469,7 +1534,40 @@ function App(){
   function showConfirm(msg, onYes){ setConfirmMsg(msg); setConfirmAction(function(){ return onYes; }); setModal("confirm"); }
   function closeModal(){ setModal(null); }
 
+  // Mode master + ada teks pencarian: cari langsung di Google Sheet (server)
+  // supaya tetap cepat walau data yang termuat di SIMORIS baru sebagian
+  // (mis. 100 terbaru). Di-debounce 400ms supaya tidak nembak request tiap
+  // ketikan huruf. Query kosong -> kembali menampilkan data yang sudah dimuat.
+  useEffect(function(){
+    if(!masterMode || !search.trim()){
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    const mySeq = ++searchSeq.current;
+    setSearching(true);
+    const q = search.trim();
+    const timer = setTimeout(async function(){
+      const hasil = await callSheetAction(sRef.current, "search", { q: q }, 20000);
+      if(searchSeq.current !== mySeq) return; // query sudah berubah lagi, buang hasil basi
+      setSearching(false);
+      if(hasil.ok && Array.isArray(hasil.rows)){
+        setSearchResults(mapSheetRowsToDisplay(sRef.current, hasil.rows));
+      }
+      // gagal cari server -> biarkan searchResults apa adanya (fallback ke data lokal di bawah)
+    }, 400);
+    return function(){ clearTimeout(timer); };
+  }, [search, masterMode]);
+
   const filtered = useMemo(function(){
+    // Sedang mencari & mode master aktif: pakai hasil pencarian server (utuh,
+    // dari SELURUH sheet) — bukan cuma data yang kebetulan sudah termuat lokal.
+    if(masterMode && search.trim() && searchResults !== null){
+      return searchResults.filter(function(x){
+        const matchKode = !kodeFilter || String(x.kodeId) === kodeFilter;
+        return matchKode;
+      });
+    }
     const sorted = S.surats; // sudah dijaga terurut menurun oleh mutateS
     if(!search && !kodeFilter) return sorted;
     const s = search.toLowerCase();
@@ -1482,7 +1580,7 @@ function App(){
       const matchKode = !kodeFilter || String(x.kodeId) === kodeFilter;
       return matchSearch && matchKode;
     });
-  }, [S, search, kodeFilter]);
+  }, [S, search, kodeFilter, searchResults, masterMode]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
@@ -1504,8 +1602,6 @@ function App(){
   }
   function openEdit(id){ setEditingId(id); setModal("surat"); }
   function closeSuratModal(){ setModal(null); setEditingId(null); }
-
-  const masterMode = !!(S.settings.appsScriptUrl||"").trim();
 
   function finalizeNewSuratLocal(values, customMsg){
     let msg = customMsg;
@@ -1591,6 +1687,7 @@ function App(){
       });
       setModal(null); setEditingId(null); setPage(1);
       showToast("Nomor "+hasil.nomor+" berhasil diterbitkan & tersimpan ke Google Sheet.");
+      setSheetInfo(function(prev){ return { total: prev.total+1, partial: prev.partial }; });
     } else if(hasil.ok){
       showNotice("Skrip Apps Script Belum Diperbarui",
         'SIMORIS berhasil terhubung ke Apps Script, tetapi responsnya bukan format yang diharapkan — tandanya skrip yang ter-deploy masih versi lama.\n\n'+
@@ -1616,6 +1713,7 @@ function App(){
       if(hasil.ok){
         mutateS(function(draft){ draft.surats = draft.surats.filter(function(x){ return x.id!==s.id; }); });
         showToast("Surat dihapus & tersinkron ke Google Sheet.");
+        setSheetInfo(function(prev){ return { total: Math.max(0,prev.total-1), partial: prev.partial }; });
       } else {
         showNotice("Gagal Sinkron ke Sheet", 'Surat BELUM dihapus supaya data SIMORIS tetap sama persis dengan Google Sheet.\n\n'+
           'Periksa koneksi internet lalu coba lagi.'+(hasil.error?('\n\nDetail teknis: '+hasil.error):''));
@@ -1709,7 +1807,7 @@ function App(){
   // di-refresh berkali-kali, dan baris yang diinput manual di sheet ikut muncul).
   // Urutan (No) SELALU diikuti apa adanya dari kolom B di sheet — bukan ditebak
   // dari teks Nomor Surat, karena teks itu bisa memuat angka yang salah/lama.
-  function applySheetListToDraft(draft, sheetRows){
+  function applySheetListToDraft(draft, sheetRows, totalHint){
     const fresh = sheetRows.map(function(r, idx){
       const tanggal = parseTanggalIndo(r.tanggal) || isoToday(0);
       const noNum = Number(r.no);
@@ -1725,10 +1823,11 @@ function App(){
         dibuatOleh:"", sumber:"synced", nomorOverride: r.nomor||null
       };
     });
-    // Nomor berikutnya = total surat saat ini + 1 — PERSIS rumus yang sama
-    // dipakai server (Apps Script), supaya preview "Nomor surat akan menjadi"
-    // selalu cocok dengan yang benar-benar akan ditulis ke sheet.
-    draft.counter = fresh.length;
+    // Nomor berikutnya = TOTAL surat di sheet + 1 — PERSIS rumus yang sama
+    // dipakai server (Apps Script). Pakai totalHint (dari respons server) kalau
+    // ada, karena saat memuat sebagian (mis. 100 terbaru) jumlah baris yang
+    // termuat di SIMORIS TIDAK sama dengan total surat yang sebenarnya.
+    draft.counter = (typeof totalHint === "number" && totalHint > 0) ? totalHint : fresh.length;
     // Urutkan menurun berdasarkan kolom No (B) — bukan sekadar membalik posisi
     // fisik baris di sheet — supaya tabel SIMORIS tetap konsisten walau baris
     // di sheet tidak tersusun rapi.
@@ -1745,7 +1844,7 @@ function App(){
     });
   }
 
-  async function refreshFromSheet(silent){
+  async function refreshFromSheet(silent, count){
     const current = sRef.current;
     if(!(current.settings.appsScriptUrl||"").trim()){
       if(!silent){
@@ -1755,12 +1854,18 @@ function App(){
       return;
     }
     setRefreshing(true);
-    const hasil = await callSheetAction(current, "list", {}, 20000);
+    const params = count ? { count: count } : {};
+    const hasil = await callSheetAction(current, "list", params, 30000);
     setRefreshing(false);
     if(hasil.ok && Array.isArray(hasil.rows)){
       mutateS(function(draft){ applySheetListToDraft(draft, hasil.rows); });
       setPage(1);
-      if(!silent) showToast("Sinkron selesai — "+hasil.rows.length+" surat, sama persis dengan Google Sheet.");
+      setSheetInfo({ total: typeof hasil.total==="number" ? hasil.total : hasil.rows.length, partial: !!hasil.partial });
+      if(!silent){
+        showToast(hasil.partial
+          ? ("Dimuat "+hasil.rows.length+" surat terbaru dari total "+hasil.total+".")
+          : ("Sinkron selesai — "+hasil.rows.length+" surat, sama persis dengan Google Sheet."));
+      }
     } else if(hasil.ok && !Array.isArray(hasil.rows)){
       // Respons "ok" tapi bentuknya tidak sesuai action=list -> skrip Apps Script
       // yang terpasang masih versi LAMA. Jangan terapkan apa pun ke data lokal.
@@ -1778,10 +1883,17 @@ function App(){
     }
   }
 
+  async function handleLoadAll(){
+    setLoadingAll(true);
+    await refreshFromSheet(false); // tanpa count = ambil SEMUA data
+    setLoadingAll(false);
+  }
+
   // Sinkron otomatis sekali saat aplikasi dibuka, kalau mode master aktif —
-  // supaya pengguna tidak perlu klik Refresh manual setiap kali masuk.
+  // hanya 100 surat TERBARU dulu (cepat), supaya buka aplikasi tidak berat.
+  // Pengguna bisa klik "Muat Semua Data" kapan saja kalau perlu lihat semuanya.
   useEffect(function(){
-    if(authed && masterMode) refreshFromSheet(true);
+    if(authed && masterMode) refreshFromSheet(true, 100);
     // eslint-disable-next-line
   }, [authed]);
 
@@ -1821,14 +1933,15 @@ function App(){
           search={search} onSearch={function(v){ setSearch(v); setPage(1); }}
           kodeFilter={kodeFilter} onKodeFilter={function(v){ setKodeFilter(v); setPage(1); }}
           aktifKodeList={aktifKode(S)}
-          onRefreshSheet={function(){ refreshFromSheet(false); }} refreshing={refreshing} masterMode={masterMode}
+          onRefreshSheet={function(){ refreshFromSheet(false, 100); }} refreshing={refreshing}
+          onLoadAll={handleLoadAll} loadingAll={loadingAll} searching={searching}
           onImportClick={function(){ fileInputRef.current && fileInputRef.current.click(); }}
           fileInputRef={fileInputRef} onFileChange={handleFileChange}
           downloadMenuOpen={downloadMenuOpen} setDownloadMenuOpen={setDownloadMenuOpen}
           onExportExcel={doExportExcel} onExportCsv={doExportCsv} onExportPdf={doExportPdf} onPrint={doPrint} onBackupJson={doBackupJson}
           masterMode={masterMode}
         />
-        <Banner masterMode={masterMode}/>
+        <Banner masterMode={masterMode} sheetInfo={sheetInfo}/>
         <SuratTable
           S={S} rows={rows} pageInfo={{ total: filtered.length }}
           onRowClick={openDetail} onEdit={openEdit} onDelete={handleDelete}
