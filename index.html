@@ -55,45 +55,46 @@
   }
 
   header.app-header{ background:linear-gradient(180deg,var(--ink-900),#0e1a33); color:#fff; position:sticky; top:0; z-index:30; box-shadow:0 1px 0 rgba(255,255,255,.06), 0 10px 30px -18px rgba(0,0,0,.6); }
-  .wrap{ max-width:1120px; margin:0 auto; padding:0 24px; }
+  .wrap{ max-width:1440px; margin:0 auto; padding:0 28px; }
   .header-inner{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 0; flex-wrap:wrap; }
   .brand{ display:flex; align-items:center; gap:14px; }
-  .brand-mark{ width:44px; height:44px; border-radius:10px; background:var(--segel);
-    border:1.5px dashed rgba(255,255,255,.5); display:flex; align-items:center; justify-content:center;
-    font-weight:700; font-size:17px; color:var(--ink-900); font-family:var(--font-display); flex-shrink:0;
-    box-shadow:inset 0 0 0 3px rgba(255,255,255,.12); }
+  .brand-mark{ width:44px; height:44px; border-radius:10px; background:rgba(255,255,255,.06);
+    border:1.4px solid rgba(255,255,255,.28); display:flex; align-items:center; justify-content:center;
+    color:#fff; flex-shrink:0; }
   .brand h1{ font-size:19px; margin:0; font-weight:700; letter-spacing:.3px; font-family:var(--font-display); }
   .brand p{ margin:2px 0 0; font-size:11.5px; color:rgba(255,255,255,.62); letter-spacing:.15px; }
   .header-actions{ display:flex; align-items:center; gap:14px; }
   .count-box{ text-align:right; }
   .count-box p{ margin:0; font-size:10.5px; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
   .count-box strong{ font-size:21px; font-weight:700; font-family:var(--font-mono); color:#fff; }
-  .btn{ border:none; cursor:pointer; font-weight:600; font-size:13px; border-radius:9px; padding:10px 16px;
-    display:inline-flex; align-items:center; gap:6px; transition:background .15s var(--ease),transform .08s, box-shadow .15s; font-family:var(--font-body); }
-  .btn:active{ transform:scale(.97); }
-  .btn-segel{ background:var(--segel); color:#20140a; box-shadow:0 1px 0 rgba(255,255,255,.25) inset; }
-  .btn-segel:hover{ background:#d99a3d; }
-  .btn-segel:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
-  .btn-ghost{ background:#fff; color:var(--ink-800); border:1px solid var(--ink-100); }
-  .btn-ghost:hover{ background:var(--ink-50); }
-  .btn-dark{ background:var(--ink-900); color:#fff; }
-  .btn-dark:hover{ background:var(--ink-800); }
-  .btn-dark:disabled{ opacity:.55; cursor:not-allowed; }
+  .btn{ border:none; cursor:pointer; font-weight:600; font-size:13px; border-radius:10px; padding:10px 16px; letter-spacing:.01em;
+    display:inline-flex; align-items:center; gap:6px; transition:background .15s var(--ease),transform .12s var(--ease), box-shadow .15s var(--ease); font-family:var(--font-body); }
+  .btn:active{ transform:scale(.97) translateY(0); }
+  .btn-segel{ background:linear-gradient(180deg,#d59b45,var(--segel)); color:#241608; box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 3px 10px -3px rgba(201,138,46,.55); }
+  .btn-segel:hover{ background:linear-gradient(180deg,#dda552,#c9903a); box-shadow:0 1px 0 rgba(255,255,255,.35) inset, 0 6px 16px -4px rgba(201,138,46,.65); transform:translateY(-1px); }
+  .btn-segel:disabled{ opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn-ghost{ background:#fff; color:var(--ink-800); border:1px solid var(--ink-100); box-shadow:0 1px 2px rgba(18,33,63,.04); }
+  .btn-ghost:hover{ background:var(--ink-50); border-color:var(--ink-300); box-shadow:0 3px 8px -3px rgba(18,33,63,.12); transform:translateY(-1px); }
+  .btn-ghost:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn-dark{ background:linear-gradient(180deg,var(--ink-800),var(--ink-900)); color:#fff; box-shadow:0 3px 10px -4px rgba(18,33,63,.5); }
+  .btn-dark:hover{ background:linear-gradient(180deg,var(--ink-700),var(--ink-800)); box-shadow:0 6px 16px -4px rgba(18,33,63,.6); transform:translateY(-1px); }
+  .btn-dark:disabled{ opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
   .btn-header-ghost{ background:transparent;color:#fff;border:1px solid rgba(255,255,255,.22); }
-  .btn-header-ghost:hover{ background:rgba(255,255,255,.08); }
+  .btn-header-ghost:hover{ background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.34); }
   .btn-header-muted{ background:transparent;color:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.16); padding:10px 12px; }
-  .btn-header-muted:hover{ color:#fff; background:rgba(255,255,255,.08); }
-  .btn-danger-text{ background:none; color:var(--red); font-weight:600; font-size:12px; padding:4px 6px; border:none; cursor:pointer; border-radius:6px; }
+  .btn-header-muted:hover{ color:#fff; background:rgba(255,255,255,.1); }
+  .btn-danger-text{ background:none; color:var(--red); font-weight:600; font-size:12px; padding:4px 6px; border:none; cursor:pointer; border-radius:6px; transition:background .12s; }
   .btn-danger-text:hover{ background:var(--red-bg); }
 
-  .icon-btn{ width:31px; height:31px; border-radius:8px; border:none; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s,transform .1s; flex-shrink:0; }
+  .icon-btn{ width:32px; height:32px; border-radius:9px; border:none; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s,transform .12s var(--ease); flex-shrink:0; }
+  .icon-btn:hover{ transform:translateY(-1px); }
   .icon-btn:active{ transform:scale(.92); }
   .icon-btn svg{ width:15px; height:15px; }
   .icon-btn-edit{ background:var(--ink-50); color:var(--ink-600); }
   .icon-btn-edit:hover{ background:var(--ink-100); color:var(--ink-900); }
   .icon-btn-delete{ background:var(--red-bg); color:var(--red); }
   .icon-btn-delete:hover{ background:#f6cac6; }
-  .pill-btn{ display:inline-flex; align-items:center; gap:6px; border:none; border-radius:8px; font-weight:600; font-size:12.5px; padding:9px 12px; cursor:pointer; transition:background .15s,transform .1s; font-family:var(--font-body); }
+  .pill-btn{ display:inline-flex; align-items:center; gap:6px; border:none; border-radius:9px; font-weight:600; font-size:12.5px; padding:9px 12px; cursor:pointer; transition:background .15s,transform .1s; font-family:var(--font-body); }
   .pill-btn:active{ transform:scale(.97); }
   .pill-btn svg{ width:14px; height:14px; flex-shrink:0; }
   .pill-btn-edit{ background:var(--ink-50); color:var(--ink-700); }
@@ -135,7 +136,7 @@
   tbody tr:hover{ background:#faf9f5; }
   .nomor-badge{ font-weight:700; background:var(--paper); border:1.5px dashed rgba(201,138,46,.55); border-radius:7px; padding:4px 10px; display:inline-block; color:var(--ink-800); letter-spacing:.2px; }
   .badge{ display:inline-flex; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
-  .truncate{ max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .truncate{ max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .empty{ padding:56px 20px; text-align:center; }
   .empty svg{ color:var(--ink-300); margin-bottom:10px; }
   .empty p:first-child{ font-weight:700; margin:0 0 4px; font-family:var(--font-display); font-size:16px; }
@@ -205,12 +206,13 @@
   .pagination-info{ color:var(--ink-600); font-size:12.5px; }
   .pagination-controls{ display:flex; align-items:center; gap:6px; }
   .page-btn{ border:1px solid var(--ink-100); background:#fff; color:var(--ink-800); font-weight:600; font-size:12.5px;
-    padding:7px 11px; border-radius:8px; cursor:pointer; min-width:34px; transition:background .12s; }
-  .page-btn:hover:not(:disabled){ background:var(--ink-50); }
+    padding:7px 11px; border-radius:9px; cursor:pointer; min-width:34px; transition:background .12s,border-color .12s,transform .1s; }
+  .page-btn:hover:not(:disabled){ background:var(--ink-50); border-color:var(--ink-300); }
+  .page-btn:active:not(:disabled){ transform:scale(.94); }
   .page-btn:disabled{ opacity:.4; cursor:not-allowed; }
-  .page-btn.active{ background:var(--ink-900); color:#fff; border-color:var(--ink-900); }
+  .page-btn.active{ background:var(--ink-900); color:#fff; border-color:var(--ink-900); box-shadow:0 2px 6px -2px rgba(18,33,63,.5); }
   .page-jump{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-600); }
-  .page-size-select{ padding:7px 9px; border-radius:8px; border:1px solid var(--ink-100); font-size:12.5px; background:#fff; }
+  .page-size-select{ padding:7px 9px; border-radius:9px; border:1px solid var(--ink-100); font-size:12.5px; background:#fff; }
 
   @media (max-width:760px){
     .pagination{ flex-direction:column; align-items:stretch; text-align:center; }
@@ -221,7 +223,7 @@
     background-image:radial-gradient(circle at 15% 10%, rgba(201,138,46,.14), transparent 45%), radial-gradient(circle at 85% 90%, rgba(44,76,124,.35), transparent 50%); }
   .login-card{ background:#fff; border-radius:18px; width:100%; max-width:380px; padding:34px 30px; box-shadow:var(--shadow-lg); animation:modalIn .25s var(--ease); }
   .login-brand{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:26px; }
-  .login-brand .brand-mark{ background:var(--segel); border:1.5px dashed rgba(201,138,46,.55); color:var(--ink-900); margin-bottom:13px; width:52px; height:52px; font-size:20px; }
+  .login-brand .brand-mark{ background:var(--paper); border:1.4px solid var(--ink-100); color:var(--ink-900); margin-bottom:13px; width:56px; height:56px; }
   .login-brand h1{ font-size:20px; margin:0; font-weight:700; color:var(--ink-900); font-family:var(--font-display); }
   .login-brand p{ margin:5px 0 0; font-size:12.5px; color:var(--ink-400); }
   .login-card .field{ margin-bottom:16px; }
@@ -272,13 +274,9 @@
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-/* ============================== KONSTANTA ============================== */
-
 const STORE_KEY = "simoris_data_v1";
 const AUTH_KEY = "simoris_authed_v1";
 const PW_HASH_KEY = "simoris_pw_hash_v1";
-// Hash dari kata sandi bawaan "simoris2026" — GANTI setelah login pertama
-// lewat "Kelola Kode" -> "Ubah kata sandi akses".
 const DEFAULT_PW_HASH = "ca861d55";
 
 const WARNA_CLASS = { blue:"badge-blue", green:"badge-green", emerald:"badge-emerald", amber:"badge-amber", violet:"badge-violet", red:"badge-red", slate:"badge-slate" };
@@ -287,33 +285,8 @@ const DEFAULT_KODE = [{ id:1, kode:"UM", nama:"Umum", warna:"emerald", aktif:tru
 const BULAN_ID = { "januari":0,"februari":1,"maret":2,"april":3,"mei":4,"juni":5,"juli":6,"agustus":7,"september":8,"oktober":9,"november":10,"desember":11 };
 const BULAN_NAMA = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
-// Skrip Apps Script v8 — Google Sheet menjadi database MASTER.
-// PENTING: kolom data di sheet Anda dimulai dari kolom B (kolom A dibiarkan
-// kosong), jadi skrip ini SELALU membaca/menulis mulai kolom B, TIDAK PERNAH
-// menyentuh kolom A. Kolom sheet: B=No, C=Tujuan Surat, D=Tanggal Surat,
-// E=Perihal, F=Nomor Surat Keluar/Surat Perintah, G=ID (kolom tersembunyi baru,
-// JANGAN diisi manual — diisi otomatis oleh skrip untuk menandai tiap baris).
-// BARU (v8): aksi "list" bisa diberi parameter &count=100 untuk hanya mengambil
-// N baris TERBARU saja (cepat, dipakai saat SIMORIS pertama dibuka), atau tanpa
-// count sama sekali untuk mengambil SEMUA data (dipakai tombol "Muat Semua
-// Data"). Ada juga aksi "search" (&q=...) yang mencari di SELURUH baris
-// langsung di sisi Google Sheet dan cuma mengirim baris yang cocok balik ke
-// SIMORIS — jadi pencarian tetap cepat walau datanya ribuan baris, karena
-// tidak perlu mengunduh semuanya dulu ke aplikasi.
-// Nomor urut (kolom B) dan angka di belakang Nomor Surat (kolom F) SELALU SAMA
-// untuk setiap surat baru dari SIMORIS — dihitung dari posisi baris terakhir
-// (metadata, super cepat). Angka dipadatkan dengan nol di depan TANPA PERNAH
-// memenggal digit (mis. 3238 tidak akan pernah jadi "238").
-// Aksi "list" dan "search" TIDAK memakai kunci antrean (lock) karena sifatnya
-// cuma membaca — supaya tidak pernah menunggu proses tulis lain selesai dulu.
-// Baris yang diinput manual langsung di Google Sheet otomatis dikenali (skrip
-// mengisi kolom ID-nya sendiri) — SIMORIS selalu mencerminkan ulang isi sheet
-// setiap sinkron, jadi tidak akan dobel.
-// Mendukung aksi (?action=...): list, search, add, update, delete — update/
-// delete dialamatkan lewat ID di kolom G, BUKAN lewat kolom No, supaya tetap
-// benar walau baris disisipkan/diurutkan ulang manual di Sheets.
 const APPS_SCRIPT_SNIPPET =
-'var SCRIPT_VERSION = 8;\n' +
+'var SCRIPT_VERSION = 9;\n' +
 '\n' +
 'function doGet(e) {\n' +
 '  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
@@ -342,16 +315,16 @@ const APPS_SCRIPT_SNIPPET =
 '  var count = Number(p && p.count) || 0;\n' +
 '  var n = (count > 0 && count < totalDataRows) ? count : totalDataRows;\n' +
 '  var startRow = last - n + 1;\n' +
-'  var data = sheet.getRange(startRow, 2, n, 6).getValues(); // B:G, cuma N baris terakhir\n' +
+'  var data = sheet.getRange(startRow, 2, n, 7).getValues(); // B:H, cuma N baris terakhir\n' +
 '  var rows = [];\n' +
 '  var idChanged = false;\n' +
 '  for (var i = 0; i < data.length; i++) {\n' +
-'    var r = data[i]; // r[0]=No r[1]=Tujuan r[2]=Tanggal r[3]=Perihal r[4]=Nomor r[5]=ID\n' +
+'    var r = data[i]; // r[0]=No r[1]=Tujuan r[2]=Tanggal r[3]=Perihal r[4]=Nomor r[5]=DibuatOleh r[6]=ID\n' +
 '    if (!r[0] && !r[1] && !r[3] && !r[4]) continue; // baris benar-benar kosong\n' +
-'    if (!r[5]) { r[5] = Utilities.getUuid(); idChanged = true; }\n' +
-'    rows.push({ id:String(r[5]), no:cellText(r[0]), tujuan:cellText(r[1]), tanggal:fmtCell(r[2]), perihal:cellText(r[3]), nomor:cellText(r[4]) });\n' +
+'    if (!r[6]) { r[6] = Utilities.getUuid(); idChanged = true; }\n' +
+'    rows.push({ id:String(r[6]), no:cellText(r[0]), tujuan:cellText(r[1]), tanggal:fmtCell(r[2]), perihal:cellText(r[3]), nomor:cellText(r[4]), dibuatOleh:cellText(r[5]) });\n' +
 '  }\n' +
-'  if (idChanged) sheet.getRange(startRow, 2, data.length, 6).setValues(data); // tulis balik cuma bagian yang dibaca\n' +
+'  if (idChanged) sheet.getRange(startRow, 2, data.length, 7).setValues(data); // tulis balik cuma bagian yang dibaca\n' +
 '  return json({ ok:true, rows:rows, total:totalDataRows, partial:(n < totalDataRows) });\n' +
 '}\n' +
 '\n' +
@@ -359,15 +332,15 @@ const APPS_SCRIPT_SNIPPET =
 '  var q = String((p && p.q) || "").toLowerCase().trim();\n' +
 '  var last = sheet.getLastRow();\n' +
 '  if (last < 2 || !q) return json({ ok:true, rows:[] });\n' +
-'  var data = sheet.getRange(2, 2, last - 1, 6).getValues();\n' +
+'  var data = sheet.getRange(2, 2, last - 1, 7).getValues();\n' +
 '  var rows = [];\n' +
 '  var limit = 300;\n' +
 '  for (var i = 0; i < data.length && rows.length < limit; i++) {\n' +
 '    var r = data[i];\n' +
 '    if (!r[0] && !r[1] && !r[3] && !r[4]) continue;\n' +
-'    var hay = (cellText(r[0])+" "+cellText(r[1])+" "+cellText(r[3])+" "+cellText(r[4])).toLowerCase();\n' +
+'    var hay = (cellText(r[0])+" "+cellText(r[1])+" "+cellText(r[3])+" "+cellText(r[4])+" "+cellText(r[5])).toLowerCase();\n' +
 '    if (hay.indexOf(q) === -1) continue;\n' +
-'    rows.push({ id:String(r[5]||""), no:cellText(r[0]), tujuan:cellText(r[1]), tanggal:fmtCell(r[2]), perihal:cellText(r[3]), nomor:cellText(r[4]) });\n' +
+'    rows.push({ id:String(r[6]||""), no:cellText(r[0]), tujuan:cellText(r[1]), tanggal:fmtCell(r[2]), perihal:cellText(r[3]), nomor:cellText(r[4]), dibuatOleh:cellText(r[5]) });\n' +
 '  }\n' +
 '  return json({ ok:true, rows:rows, capped:(rows.length>=limit) });\n' +
 '}\n' +
@@ -379,14 +352,14 @@ const APPS_SCRIPT_SNIPPET =
 '  var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" + padded;\n' +
 '  var id = Utilities.getUuid();\n' +
 '  var newRow = sheet.getLastRow() + 1;\n' +
-'  sheet.getRange(newRow, 2, 1, 6).setValues([[nextNo, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor, id]]); // tulis ke B:G, kolom A tidak disentuh\n' +
+'  sheet.getRange(newRow, 2, 1, 7).setValues([[nextNo, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor, p.dibuatOleh||"", id]]); // tulis ke B:H\n' +
 '  return json({ ok:true, id:id, no:nextNo, nomor:nomor });\n' +
 '}\n' +
 '\n' +
 'function doUpdate(sheet, p) {\n' +
 '  var rowIdx = findRowById(sheet, p.id);\n' +
 '  if (rowIdx === -1) return json({ ok:false, error:"Baris (ID) tidak ditemukan di sheet — mungkin sudah dihapus manual." });\n' +
-'  sheet.getRange(rowIdx, 3, 1, 4).setValues([[p.tujuan||"", p.tanggal||"", p.perihal||"", p.nomor||""]]); // C:F\n' +
+'  sheet.getRange(rowIdx, 3, 1, 5).setValues([[p.tujuan||"", p.tanggal||"", p.perihal||"", p.nomor||"", p.dibuatOleh||""]]); // C:G\n' +
 '  return json({ ok:true });\n' +
 '}\n' +
 '\n' +
@@ -400,7 +373,7 @@ const APPS_SCRIPT_SNIPPET =
 'function findRowById(sheet, id) {\n' +
 '  var last = sheet.getLastRow();\n' +
 '  if (last < 2 || !id) return -1;\n' +
-'  var vals = sheet.getRange(2, 7, last - 1, 1).getValues(); // kolom G\n' +
+'  var vals = sheet.getRange(2, 8, last - 1, 1).getValues(); // kolom H\n' +
 '  for (var i = 0; i < vals.length; i++) {\n' +
 '    if (String(vals[i][0]) === String(id)) return i + 2;\n' +
 '  }\n' +
@@ -427,13 +400,6 @@ const APPS_SCRIPT_SNIPPET =
 '  obj.version = SCRIPT_VERSION;\n' +
 '  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);\n' +
 '}';
-
-
-
-
-
-
-/* ============================== HELPER DASAR ============================== */
 
 function simpleHash(str){
   let hash = 5381;
@@ -471,6 +437,13 @@ function loadState(){
     if(!Array.isArray(parsed.kodeList)) parsed.kodeList = DEFAULT_KODE;
     if(!Array.isArray(parsed.surats)) parsed.surats = [];
     if(typeof parsed.counter !== "number") parsed.counter = 0;
+    // Mode master: berapa pun yang sempat tersimpan di cache lokal (mis. bekas
+    // klik "Muat Semua Data"), tampilan AWAL selalu dibatasi 100 surat terbaru
+    // saja supaya buka aplikasi pertama kali selalu ringan. Sinkron 100-terbaru
+    // otomatis tetap jalan sesudahnya untuk memastikan datanya juga terbaru.
+    if((parsed.settings.appsScriptUrl||"").trim() && parsed.surats.length > 100){
+      parsed.surats = parsed.surats.slice().sort(function(a,b){ return b.urut-a.urut; }).slice(0, 100);
+    }
     return parsed;
   }catch(e){ return defaultState(); }
 }
@@ -500,10 +473,6 @@ function ensureKodeInDraft(draft, kodeStr){
   return k;
 }
 
-// Mengubah baris hasil action=search (Apps Script) menjadi objek surat untuk
-// DITAMPILKAN SAJA — murni (tidak mengubah S.kodeList/S.surats sama sekali),
-// dipakai saat pencarian sisi server supaya hasilnya tidak ikut "mengotori"
-// data lokal yang sedang dimuat (mis. saat baru memuat 100 surat terbaru).
 function mapSheetRowsToDisplay(S, rows){
   const list = rows.map(function(r){
     const tanggal = parseTanggalIndo(r.tanggal) || isoToday(0);
@@ -515,13 +484,11 @@ function mapSheetRowsToDisplay(S, rows){
       const found = S.kodeList.find(function(k){ return k.kode.toLowerCase()===parsed.kodeStr.toLowerCase(); });
       if(found) kodeId = found.id;
     }
-    return { id:r.id, urut:urut, kodeId:kodeId, tujuan:r.tujuan||"", perihal:r.perihal||"", tanggal:tanggal, dibuatOleh:"", sumber:"synced", nomorOverride: r.nomor||null };
+    return { id:r.id, urut:urut, kodeId:kodeId, tujuan:r.tujuan||"", perihal:r.perihal||"", tanggal:tanggal, dibuatOleh:r.dibuatOleh||"", sumber:"synced", nomorOverride: r.nomor||null };
   });
   list.sort(function(a,b){ return b.urut - a.urut; });
   return list;
 }
-
-/* ============================== IMPOR / EKSPOR ============================== */
 
 function parseTanggalIndo(str){
   if(!str) return null;
@@ -603,16 +570,11 @@ function parseNomorRaw(nomorRaw, instansiKode){
   let rest = text.slice(0, text.length - trailMatch[0].length);
   rest = rest.replace(/[.\-\s]+$/, ""); // buang pemisah sebelum angka, mis. "...-" atau "..."
 
-  // 1) Utamakan pola kode klasifikasi resmi seperti "UM.01.01" / "PB.01.02"
-  //    (huruf lalu kelompok titik-angka) — ambil kemunculan TERAKHIR di teks,
-  //    supaya kode instansi seperti "W.9" (cuma 1 huruf) tidak ikut terambil.
   const dotMatches = rest.match(/[A-Za-z]{2,8}(?:\.\d{1,3}){1,3}/g);
   if(dotMatches && dotMatches.length){
     return { urut: urut, kodeStr: dotMatches[dotMatches.length-1].toUpperCase() };
   }
 
-  // 2) Fallback untuk kode sederhana tanpa titik (mis. "UM" bawaan SIMORIS):
-  //    buang awalan kode instansi, sisanya dianggap kode klasifikasi.
   if(instansiKode){
     const ik = String(instansiKode).trim();
     if(ik && rest.toLowerCase().indexOf(ik.toLowerCase()) === 0) rest = rest.slice(ik.length);
@@ -653,10 +615,7 @@ function applyImportToDraft(draft, parsedRows){
   draft.surats.sort(function(a,b){ return b.urut - a.urut; });
   return { ditambahkan: ditambahkan, dilewati: dilewati };
 }
-/* ---------- Sinkron Google Sheet (Sheet = database master) ----------
-   Semua baca/tulis lewat SATU URL Apps Script (?action=list|add|update|delete).
-   Tidak lagi memakai tautan "Bagikan" CSV — sheet boleh tetap privat, karena
-   Apps Script yang mengeksekusi dengan izin pemilik skrip. */
+
 async function callSheetAction(S, action, params, timeoutMs){
   const url = (S.settings.appsScriptUrl||"").trim();
   if(!url) return { ok:false, reason:"no-url" };
@@ -678,7 +637,6 @@ async function callSheetAction(S, action, params, timeoutMs){
   }
 }
 
-/* ---------- Pemuat skrip lazy (Excel & PDF baru diambil saat dipakai) ---------- */
 const _scriptCache = {};
 function loadScriptOnce(src){
   if(_scriptCache[src]) return _scriptCache[src];
@@ -759,13 +717,22 @@ function exportJsonBackup(S){
   downloadBlob(new Blob([JSON.stringify(S,null,2)], { type:"application/json" }), "simoris-cadangan-"+isoToday(0)+".json");
 }
 
-/* ============================== IKON ============================== */
-
 function Icon(props){
   const { d, children, ...rest } = props;
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={props.size||15} height={props.size||15} {...rest}>
       {children}
+    </svg>
+  );
+}
+function BrandMark({ size }){
+  const s = size || 26;
+  return (
+    <svg width={s} height={s} viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="6" y="6" width="24" height="31" rx="1.6" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M11.5 15h13M11.5 21h13M11.5 27h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="30.5" cy="29.5" r="8.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+      <path d="M27 29.6l2.4 2.4 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
 }
@@ -782,8 +749,6 @@ const IconInbox = (p) => <Icon {...p}><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path 
 const IconInfo = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></Icon>;
 const IconCheck = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12"/></Icon>;
 const IconSettings = (p) => <Icon {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></Icon>;
-
-/* ============================== KOMPONEN KECIL ============================== */
 
 function Toast({ message }){
   if(!message) return null;
@@ -832,8 +797,6 @@ function Pagination({ page, totalPages, total, pageSize, start, onPrev, onNext, 
   );
 }
 
-/* ============================== LOGIN ============================== */
-
 function LoginScreen({ onSuccess }){
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
@@ -856,7 +819,7 @@ function LoginScreen({ onSuccess }){
     <div className="login-wrap">
       <div className="login-card">
         <div className="login-brand">
-          <div className="brand-mark">№</div>
+          <div className="brand-mark"><BrandMark size={30}/></div>
           <h1>SIMORIS</h1>
           <p>Masuk untuk mengakses sistem penomoran surat</p>
         </div>
@@ -874,14 +837,12 @@ function LoginScreen({ onSuccess }){
   );
 }
 
-/* ============================== HEADER & TOOLBAR ============================== */
-
 function Header({ count, onKelola, onTambah, onLogout }){
   return (
     <header className="app-header">
       <div className="wrap header-inner">
         <div className="brand">
-          <div className="brand-mark">№</div>
+          <div className="brand-mark"><BrandMark size={24}/></div>
           <div><h1>SIMORIS</h1><p>Sistem Penomoran Surat Otomatis</p></div>
         </div>
         <div className="header-actions">
@@ -955,8 +916,6 @@ function Toolbar({
     </div>
   );
 }
-
-/* ============================== TABEL SURAT ============================== */
 
 function SuratTable({ S, rows, pageInfo, onRowClick, onEdit, onDelete, paginationProps }){
   if(!pageInfo.total){
@@ -1039,8 +998,6 @@ function SuratTable({ S, rows, pageInfo, onRowClick, onEdit, onDelete, paginatio
     </React.Fragment>
   );
 }
-
-/* ============================== MODAL: TAMBAH/UBAH SURAT ============================== */
 
 function KodeCombobox({ options, value, onChange, placeholder }){
   const [open, setOpen] = useState(false);
@@ -1182,8 +1139,6 @@ function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
   );
 }
 
-/* ============================== MODAL: DETAIL ============================== */
-
 function DetailModal({ open, surat, S, onClose, onEdit }){
   if(!open || !surat) return null;
   const k = kodeOf(S, surat.kodeId);
@@ -1213,8 +1168,6 @@ function DetailModal({ open, surat, S, onClose, onEdit }){
     </div>
   );
 }
-
-/* ============================== MODAL: KONFIRMASI & PEMBERITAHUAN ============================== */
 
 function ConfirmModal({ open, message, onYes, onNo }){
   if(!open) return null;
@@ -1248,8 +1201,6 @@ function NoticeModal({ open, title, message, onClose }){
   );
 }
 
-/* ============================== MODAL: HAPUS SEMUA ============================== */
-
 function HapusSemuaModal({ open, count, onClose, onConfirm }){
   const [text, setText] = useState("");
   useEffect(function(){ if(open) setText(""); }, [open]);
@@ -1276,8 +1227,6 @@ function HapusSemuaModal({ open, count, onClose, onConfirm }){
     </div>
   );
 }
-
-/* ============================== MODAL: KELOLA KODE ============================== */
 
 function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showConfirm, onOpenHapusSemua, onSaveAndRefresh, masterMode }){
   const [newKode, setNewKode] = useState("");
@@ -1432,7 +1381,7 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
             {appsExpanded && (
               <div style={{marginTop:12}}>
                 <p className="hint" style={{marginBottom:10,lineHeight:1.5}}>
-                  Dengan fitur ini, <b>Google Sheet Anda menjadi database utama/master</b> — SIMORIS hanya menjadi tampilan yang selalu mencerminkan isi sheet itu persis. Sheet boleh tetap privat (tidak perlu dibagikan ke publik) karena semua akses lewat Apps Script berikut. Skrip ini dibuat khusus untuk sheet dengan data mulai <b>kolom B</b> (kolom A dibiarkan kosong): B=No, C=Tujuan Surat, D=Tanggal Surat, E=Perihal, F=Nomor Surat. Ikuti langkah ini:
+                  Dengan fitur ini, <b>Google Sheet Anda menjadi database utama/master</b> — SIMORIS hanya menjadi tampilan yang selalu mencerminkan isi sheet itu persis. Sheet boleh tetap privat (tidak perlu dibagikan ke publik) karena semua akses lewat Apps Script berikut. Skrip ini dibuat khusus untuk sheet dengan data mulai <b>kolom B</b> (kolom A dibiarkan kosong): B=No, C=Tujuan Surat, D=Tanggal Surat, E=Perihal, F=Nomor Surat, G=Dibuat Oleh. Sudah pernah pakai versi sebelumnya (kolom ID di G)? Sisipkan 1 kolom baru sebelum kolom ID itu, beri judul "Dibuat Oleh" — ID akan otomatis bergeser ke H beserta isinya. Ikuti langkah ini:
                 </p>
                 <ol style={{fontSize:12.5,color:"var(--ink-700)",lineHeight:2,margin:"0 0 12px",paddingLeft:20}}>
                   <li>Buka Google Sheet Anda, klik menu <b>Extensions</b> → <b>Apps Script</b>.</li>
@@ -1442,7 +1391,7 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
                   <li>Pada "Who has access", pilih <b>Anyone</b> → klik <b>Deploy</b> → izinkan akses jika diminta.</li>
                   <li>Salin <b>URL Web app</b> yang muncul → tempel di kolom di bawah → <b>Simpan &amp; Sinkron Sekarang</b>.</li>
                 </ol>
-                <div className="banner" style={{marginBottom:12}}><IconInfo size={15}/><span>Kolom G akan otomatis dipakai skrip ini sebagai ID tersembunyi per baris — boleh diberi judul "ID" atau dibiarkan tanpa judul, jangan diisi manual.</span></div>
+                <div className="banner" style={{marginBottom:12}}><IconInfo size={15}/><span>Kolom H akan otomatis dipakai skrip ini sebagai ID tersembunyi per baris — boleh diberi judul "ID" atau dibiarkan tanpa judul, jangan diisi manual.</span></div>
                 <div style={{position:"relative"}}>
                   <textarea className="code-snippet" readOnly rows={9} value={APPS_SCRIPT_SNIPPET} onClick={function(e){ e.target.select(); }}/>
                   <button className="btn btn-ghost" onClick={copySnippet} style={{position:"absolute",top:8,right:8,padding:"6px 10px",fontSize:11.5}}>{copied ? "Tersalin" : "Salin Kode"}</button>
@@ -1478,9 +1427,6 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
   );
 }
 
-
-/* ============================== APP ============================== */
-
 function App(){
   const [authed, setAuthed] = useState(isoAuthedInit);
   const [S, setS] = useState(loadState);
@@ -1499,14 +1445,9 @@ function App(){
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
-  // Info hasil sinkron terakhir: total surat di sheet & apakah yang dimuat cuma
-  // sebagian (100 terbaru) atau semuanya.
   const [sheetInfo, setSheetInfo] = useState({ total:0, partial:false });
   const [loadingAll, setLoadingAll] = useState(false);
 
-  // Pencarian sisi server: kalau mode master aktif, mengetik di kotak cari
-  // memanggil action=search di Apps Script (mencari di SELURUH baris sheet
-  // langsung di sana) supaya tidak perlu memuat ribuan baris dulu ke SIMORIS.
   const [searchResults, setSearchResults] = useState(null); // null = tidak sedang mencari server
   const [searching, setSearching] = useState(false);
   const searchSeq = useRef(0);
@@ -1534,10 +1475,6 @@ function App(){
   function showConfirm(msg, onYes){ setConfirmMsg(msg); setConfirmAction(function(){ return onYes; }); setModal("confirm"); }
   function closeModal(){ setModal(null); }
 
-  // Mode master + ada teks pencarian: cari langsung di Google Sheet (server)
-  // supaya tetap cepat walau data yang termuat di SIMORIS baru sebagian
-  // (mis. 100 terbaru). Di-debounce 400ms supaya tidak nembak request tiap
-  // ketikan huruf. Query kosong -> kembali menampilkan data yang sudah dimuat.
   useEffect(function(){
     if(!masterMode || !search.trim()){
       setSearchResults(null);
@@ -1554,14 +1491,11 @@ function App(){
       if(hasil.ok && Array.isArray(hasil.rows)){
         setSearchResults(mapSheetRowsToDisplay(sRef.current, hasil.rows));
       }
-      // gagal cari server -> biarkan searchResults apa adanya (fallback ke data lokal di bawah)
     }, 400);
     return function(){ clearTimeout(timer); };
   }, [search, masterMode]);
 
   const filtered = useMemo(function(){
-    // Sedang mencari & mode master aktif: pakai hasil pencarian server (utuh,
-    // dari SELURUH sheet) — bukan cuma data yang kebetulan sudah termuat lokal.
     if(masterMode && search.trim() && searchResults !== null){
       return searchResults.filter(function(x){
         const matchKode = !kodeFilter || String(x.kodeId) === kodeFilter;
@@ -1591,14 +1525,9 @@ function App(){
   const editingSurat = editingId ? S.surats.find(function(x){ return x.id===editingId; }) : null;
   const detailSurat = detailId ? S.surats.find(function(x){ return x.id===detailId; }) : null;
 
-  /* ---------- Surat CRUD ---------- */
-
   function openTambah(){
     setEditingId(null);
     setModal("surat");
-    // Tidak lagi menyinkron ulang seluruh data di sini — preview nomor sudah
-    // cukup akurat dari S.counter (dihitung dari total surat), dan menarik
-    // ratusan baris tiap kali form dibuka bikin terasa lambat.
   }
   function openEdit(id){ setEditingId(id); setModal("surat"); }
   function closeSuratModal(){ setModal(null); setEditingId(null); }
@@ -1631,20 +1560,14 @@ function App(){
         showToast("Perubahan tersimpan.");
         return;
       }
-      // Mode master: nomor TIDAK dihitung ulang dari kolom No (No & Nomor Surat
-      // adalah dua hal terpisah) — angka urut di belakang nomor mengikuti kolom
-      // No (B) di sheet apa adanya, hanya segmen kode klasifikasi yang berubah.
-      // Ini sekaligus memperbaiki teks Nomor Surat lama yang mungkin salah/terpotong.
       setSubmittingSurat(true);
       const nomorBaru = nomorSurat(current, existing.urut, values.kodeId);
-      const hasil = await callSheetAction(current, "update", { id: existing.id, tujuan:values.tujuan, tanggal: fmtTanggal(values.tanggal), perihal:values.perihal, nomor: nomorBaru });
+      const hasil = await callSheetAction(current, "update", { id: existing.id, tujuan:values.tujuan, tanggal: fmtTanggal(values.tanggal), perihal:values.perihal, nomor: nomorBaru, dibuatOleh: values.dibuatOleh });
       setSubmittingSurat(false);
       if(hasil.ok){
-        // Terapkan langsung ke tampilan dari hasil respons (tidak menarik ulang
-        // seluruh data) supaya terasa instan.
         mutateS(function(draft){
           const s = draft.surats.find(function(x){ return x.id===editingId; });
-          if(s){ s.kodeId=values.kodeId; s.tanggal=values.tanggal; s.tujuan=values.tujuan; s.perihal=values.perihal; s.nomorOverride=nomorBaru; }
+          if(s){ s.kodeId=values.kodeId; s.tanggal=values.tanggal; s.tujuan=values.tujuan; s.perihal=values.perihal; s.dibuatOleh=values.dibuatOleh; s.nomorOverride=nomorBaru; }
         });
         setModal(null); setEditingId(null);
         showToast("Perubahan tersimpan & tersinkron ke Google Sheet.");
@@ -1661,27 +1584,23 @@ function App(){
       return;
     }
 
-    // Mode master: nomor HARUS diminta & dikonfirmasi oleh Google Sheet (lewat Apps
-    // Script) supaya tidak pernah ada nomor "tebakan" lokal yang bisa bentrok.
     const kodeObjForPush = kodeOf(current, values.kodeId);
     setSubmittingSurat(true);
     const hasil = await callSheetAction(current, "add", {
       kode: kodeObjForPush ? kodeObjForPush.kode : "",
       instansi: current.settings.instansiKode,
       digit: current.settings.digit,
-      tujuan: values.tujuan, tanggal: fmtTanggal(values.tanggal), perihal: values.perihal
+      tujuan: values.tujuan, tanggal: fmtTanggal(values.tanggal), perihal: values.perihal, dibuatOleh: values.dibuatOleh
     });
     setSubmittingSurat(false);
     if(hasil.ok && typeof hasil.id === "string"){
-      // Terapkan langsung dari hasil respons (tidak menarik ulang seluruh data)
-      // supaya terasa instan.
       mutateS(function(draft){
         const finalUrut = Number(hasil.no) || (draft.counter + 1);
         if(finalUrut > draft.counter) draft.counter = finalUrut;
         draft.surats.unshift({
           id: hasil.id, urut: finalUrut, kodeId: values.kodeId,
           tujuan: values.tujuan, perihal: values.perihal, tanggal: values.tanggal,
-          dibuatOleh:"", sumber:"synced", nomorOverride: hasil.nomor
+          dibuatOleh: values.dibuatOleh||"", sumber:"synced", nomorOverride: hasil.nomor
         });
         draft.surats.sort(function(a,b){ return b.urut-a.urut; });
       });
@@ -1724,8 +1643,6 @@ function App(){
   function openDetail(id){ setDetailId(id); setModal("detail"); }
   function closeDetail(){ setModal(null); setDetailId(null); }
 
-  /* ---------- Ekspor / cetak ---------- */
-
   async function doExportExcel(){
     showToast("Menyiapkan file Excel...");
     const ok = await exportExcelFile(sRef.current, filtered);
@@ -1739,8 +1656,6 @@ function App(){
   }
   function doPrint(){ window.print(); }
   function doBackupJson(){ exportJsonBackup(sRef.current); }
-
-  /* ---------- Impor ---------- */
 
   function handleFileChange(e){
     const file = e.target.files[0];
@@ -1799,44 +1714,22 @@ function App(){
     showToast(summary.ditambahkan+" surat diimpor"+(summary.dilewati?", "+summary.dilewati+" dilewati (sudah ada)":"")+".");
   }
 
-  /* ---------- Google Sheet: sheet = MASTER, SIMORIS jadi cermin persis ---------- */
-
-  // Mengubah baris hasil action=list dari Apps Script menjadi data surat SIMORIS,
-  // lalu MENGGANTI TOTAL S.surats — supaya jumlah & isi di SIMORIS selalu identik
-  // dengan yang ada di Google Sheet saat itu (tidak pernah menumpuk/dobel walau
-  // di-refresh berkali-kali, dan baris yang diinput manual di sheet ikut muncul).
-  // Urutan (No) SELALU diikuti apa adanya dari kolom B di sheet — bukan ditebak
-  // dari teks Nomor Surat, karena teks itu bisa memuat angka yang salah/lama.
   function applySheetListToDraft(draft, sheetRows, totalHint){
     const fresh = sheetRows.map(function(r, idx){
       const tanggal = parseTanggalIndo(r.tanggal) || isoToday(0);
       const noNum = Number(r.no);
-      // Sumber kebenaran utama untuk urutan: kolom "No" (B) di sheet apa adanya.
       const urut = (r.no !== "" && !isNaN(noNum) && noNum > 0) ? noNum : (idx+1);
-      // Kode klasifikasi tetap diurai dari teks Nomor Surat (hanya dipakai
-      // untuk label/warna & filter, tidak memengaruhi urutan/penomoran).
       const parsed = parseNomorRaw(r.nomor, draft.settings.instansiKode);
       const kodeObj = parsed ? ensureKodeInDraft(draft, parsed.kodeStr) : ensureKodeInDraft(draft, "SHEET");
       return {
         id: r.id, sheetNo: r.no, urut: urut,
         kodeId: kodeObj.id, tujuan: r.tujuan||"", perihal: r.perihal||"", tanggal: tanggal,
-        dibuatOleh:"", sumber:"synced", nomorOverride: r.nomor||null
+        dibuatOleh: r.dibuatOleh||"", sumber:"synced", nomorOverride: r.nomor||null
       };
     });
-    // Nomor berikutnya = TOTAL surat di sheet + 1 — PERSIS rumus yang sama
-    // dipakai server (Apps Script). Pakai totalHint (dari respons server) kalau
-    // ada, karena saat memuat sebagian (mis. 100 terbaru) jumlah baris yang
-    // termuat di SIMORIS TIDAK sama dengan total surat yang sebenarnya.
     draft.counter = (typeof totalHint === "number" && totalHint > 0) ? totalHint : fresh.length;
-    // Urutkan menurun berdasarkan kolom No (B) — bukan sekadar membalik posisi
-    // fisik baris di sheet — supaya tabel SIMORIS tetap konsisten walau baris
-    // di sheet tidak tersusun rapi.
     fresh.sort(function(a,b){ return b.urut - a.urut; });
     draft.surats = fresh;
-    // Buang kode klasifikasi hasil deteksi otomatis dari sinkron-sinkron
-    // sebelumnya yang sekarang sudah tidak dipakai surat manapun (mis. bekas
-    // salah baca kolom dulu) — supaya daftar di "Kelola Kode Klasifikasi"
-    // tetap bersih. Kode yang ditambahkan manual oleh pengguna TIDAK disentuh.
     const usedKodeIds = {};
     fresh.forEach(function(s){ usedKodeIds[s.kodeId] = true; });
     draft.kodeList = draft.kodeList.filter(function(k){
@@ -1868,8 +1761,6 @@ function App(){
           : ("Sinkron selesai — "+hasil.rows.length+" surat, sama persis dengan Google Sheet."));
       }
     } else if(hasil.ok && !Array.isArray(hasil.rows)){
-      // Respons "ok" tapi bentuknya tidak sesuai action=list -> skrip Apps Script
-      // yang terpasang masih versi LAMA. Jangan terapkan apa pun ke data lokal.
       showNotice("Skrip Apps Script Belum Diperbarui",
         'SIMORIS berhasil terhubung ke Apps Script, tetapi responsnya bukan format daftar surat — tandanya skrip yang ter-deploy masih versi lama.\n\n'+
         'Perbaikan: buka Google Sheet → Extensions → Apps Script → salin ulang skrip terbaru dari "Kelola Kode" di SIMORIS → Deploy → Manage deployments → ikon pensil → Version: "New version" → Deploy.\n\n'+
@@ -1890,23 +1781,15 @@ function App(){
     setLoadingAll(false);
   }
 
-  // Sinkron otomatis sekali saat aplikasi dibuka, kalau mode master aktif —
-  // hanya 100 surat TERBARU dulu (cepat), supaya buka aplikasi tidak berat.
-  // Pengguna bisa klik "Muat Semua Data" kapan saja kalau perlu lihat semuanya.
   useEffect(function(){
     if(authed && masterMode) refreshFromSheet(true, 100);
-    // eslint-disable-next-line
   }, [authed]);
-
-  /* ---------- Hapus semua ---------- */
 
   function confirmHapusSemua(){
     mutateS(function(draft){ draft.surats = []; draft.counter = 0; });
     setModal(null);
     showToast("Semua data surat telah dihapus.");
   }
-
-  /* ---------- Logout ---------- */
 
   function handleLogout(){
     showConfirm("Keluar dari SIMORIS? Anda perlu memasukkan kata sandi lagi untuk membuka kembali.", function(){
@@ -1955,7 +1838,7 @@ function App(){
         open={modal==="kelola"} S={S} onClose={function(){ setModal(null); }} mutateS={mutateS}
         showToast={showToast} showNotice={showNotice} showConfirm={showConfirm}
         onOpenHapusSemua={function(){ setModal("hapusSemua"); }}
-        onSaveAndRefresh={function(){ refreshFromSheet(false); }}
+        onSaveAndRefresh={function(){ refreshFromSheet(false, 100); }}
         masterMode={masterMode}
       />
       <DetailModal open={modal==="detail"} surat={detailSurat} S={S} onClose={closeDetail} onEdit={function(id){ setEditingId(id); setModal("surat"); }}/>
