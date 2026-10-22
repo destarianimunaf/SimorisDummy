@@ -286,7 +286,7 @@ const BULAN_ID = { "januari":0,"februari":1,"maret":2,"april":3,"mei":4,"juni":5
 const BULAN_NAMA = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
 const APPS_SCRIPT_SNIPPET =
-'var SCRIPT_VERSION = 9;\n' +
+'var SCRIPT_VERSION = 10;\n' +
 '\n' +
 'function doGet(e) {\n' +
 '  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];\n' +
@@ -346,14 +346,21 @@ const APPS_SCRIPT_SNIPPET =
 '}\n' +
 '\n' +
 'function doAdd(sheet, p) {\n' +
-'  var nextNo = nextCounter(sheet);\n' +
+'  var n = Math.max(1, Math.min(50, Number(p.jumlah) || 1));\n' +
+'  var startNo = nextCounter(sheet);\n' +
 '  var digit = Number(p.digit) || 3;\n' +
-'  var padded = String(nextNo); while (padded.length < digit) padded = "0" + padded;\n' +
-'  var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" + padded;\n' +
-'  var id = Utilities.getUuid();\n' +
+'  var rows = [], items = [];\n' +
+'  for (var i = 0; i < n; i++) {\n' +
+'    var no = startNo + i;\n' +
+'    var padded = String(no); while (padded.length < digit) padded = "0" + padded;\n' +
+'    var nomor = (p.instansi||"") + "-" + (p.kode||"") + "-" + padded;\n' +
+'    var id = Utilities.getUuid();\n' +
+'    rows.push([no, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor, p.dibuatOleh||"", id]);\n' +
+'    items.push({ id:id, no:no, nomor:nomor });\n' +
+'  }\n' +
 '  var newRow = sheet.getLastRow() + 1;\n' +
-'  sheet.getRange(newRow, 2, 1, 7).setValues([[nextNo, p.tujuan||"", p.tanggal||"", p.perihal||"", nomor, p.dibuatOleh||"", id]]); // tulis ke B:H\n' +
-'  return json({ ok:true, id:id, no:nextNo, nomor:nomor });\n' +
+'  sheet.getRange(newRow, 2, rows.length, 7).setValues(rows); // semua nomor ditulis sekaligus ke B:H\n' +
+'  return json({ ok:true, id:items[0].id, no:items[0].no, nomor:items[0].nomor, items:items });\n' +
 '}\n' +
 '\n' +
 'function doUpdate(sheet, p) {\n' +
@@ -1061,6 +1068,7 @@ function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
   const [tujuan, setTujuan] = useState("");
   const [perihal, setPerihal] = useState("");
   const [dibuatOleh, setDibuatOleh] = useState("");
+  const [jumlah, setJumlah] = useState(1);
   const [error, setError] = useState("");
 
   useEffect(function(){
@@ -1076,6 +1084,7 @@ function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
       setTanggal(isoToday(0));
       setTujuan(""); setPerihal(""); setDibuatOleh("");
     }
+    setJumlah(1);
     setError("");
   }, [open, editing]);
 
@@ -1095,12 +1104,16 @@ function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
     preview = kodeId ? nomorSurat(S, previewUrut, kodeId) : "—";
   }
 
+  const jml = Math.max(1, Math.min(50, parseInt(jumlah, 10) || 1));
+  let previewAkhir = null;
+  if(!editing && jml > 1 && kodeId) previewAkhir = nomorSurat(S, previewUrut + jml - 1, kodeId);
+
   function submit(){
     if(!kodeId){ setError("Pilih kode klasifikasi."); return; }
     if(!tanggal){ setError("Tanggal surat wajib diisi."); return; }
     if(!perihal.trim()){ setError("Perihal wajib diisi."); return; }
     setError("");
-    onSubmit({ kodeId: Number(kodeId), tanggal: tanggal, tujuan: tujuan.trim(), perihal: perihal.trim(), dibuatOleh: dibuatOleh.trim() });
+    onSubmit({ kodeId: Number(kodeId), tanggal: tanggal, tujuan: tujuan.trim(), perihal: perihal.trim(), dibuatOleh: dibuatOleh.trim(), jumlah: editing ? 1 : jml });
   }
 
   return (
@@ -1113,7 +1126,7 @@ function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
         <div className="modal-body">
           <div className="preview-box">
             <span>{editing ? "Nomor surat (tidak dapat diubah)" : "Nomor surat akan menjadi"}</span>
-            <span className="mono">{preview}</span>
+            <span className="mono">{previewAkhir ? (preview+"  s/d  "+previewAkhir) : preview}</span>
           </div>
           {!opsiKodeBase.length && <p className="error-text">Belum ada kode klasifikasi aktif. Tambahkan lewat "Kelola Kode" dulu.</p>}
           <div className="field">
@@ -1125,12 +1138,23 @@ function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
             <div className="field"><label>Tujuan Surat</label><input type="text" placeholder="Nama/bagian tujuan" value={tujuan} onChange={function(e){ setTujuan(e.target.value); }}/></div>
           </div>
           <div className="field"><label>Perihal</label><input type="text" placeholder="Contoh: PAK Cory / Surat Undangan Rapat" value={perihal} onChange={function(e){ setPerihal(e.target.value); }}/></div>
+          {!editing && (
+            <div className="field">
+              <label>Jumlah nomor yang diterbitkan</label>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button type="button" className="btn btn-ghost" style={{padding:"8px 14px"}} onClick={function(){ setJumlah(Math.max(1, jml-1)); }} disabled={jml<=1}>−</button>
+                <input type="number" min="1" max="50" value={jumlah} onChange={function(e){ setJumlah(e.target.value); }} onBlur={function(){ setJumlah(jml); }} style={{textAlign:"center",maxWidth:90}}/>
+                <button type="button" className="btn btn-ghost" style={{padding:"8px 14px"}} onClick={function(){ setJumlah(Math.min(50, jml+1)); }} disabled={jml>=50}>+</button>
+                <span className="hint">{jml>1 ? ("Terbit "+jml+" nomor berurutan, isian sama") : "1 nomor (maks. 50 sekaligus)"}</span>
+              </div>
+            </div>
+          )}
           <div className="field"><label>Dibuat oleh (opsional)</label><input type="text" placeholder="Nama petugas" value={dibuatOleh} onChange={function(e){ setDibuatOleh(e.target.value); }}/></div>
           {error && <p className="error-text">{error}</p>}
           <div className="form-actions">
             <button className="btn-ghost" onClick={onClose} disabled={submitting}>Batal</button>
             <button className="btn-dark" onClick={submit} disabled={!opsiKodeBase.length || submitting}>
-              {submitting ? "Menerbitkan..." : (editing ? "Simpan Perubahan" : "Terbitkan")}
+              {submitting ? "Menerbitkan..." : (editing ? "Simpan Perubahan" : (jml>1 ? ("Terbitkan "+jml+" Nomor") : "Terbitkan"))}
             </button>
           </div>
         </div>
@@ -1534,13 +1558,19 @@ function App(){
 
   function finalizeNewSuratLocal(values, customMsg){
     let msg = customMsg;
+    const n = Math.max(1, Math.min(50, values.jumlah || 1));
     mutateS(function(draft){
-      draft.counter += 1;
-      const finalUrut = draft.counter;
-      const nomorText = nomorSurat(draft, finalUrut, values.kodeId);
-      draft.surats.unshift({ id:uid(), urut:finalUrut, kodeId:values.kodeId, tujuan:values.tujuan, perihal:values.perihal, tanggal:values.tanggal, dibuatOleh:values.dibuatOleh, sumber:"manual", nomorOverride:null });
+      let pertama = "", terakhir = "";
+      for(let i=0;i<n;i++){
+        draft.counter += 1;
+        const finalUrut = draft.counter;
+        const nomorText = nomorSurat(draft, finalUrut, values.kodeId);
+        if(i===0) pertama = nomorText;
+        terakhir = nomorText;
+        draft.surats.unshift({ id:uid()+i, urut:finalUrut, kodeId:values.kodeId, tujuan:values.tujuan, perihal:values.perihal, tanggal:values.tanggal, dibuatOleh:values.dibuatOleh, sumber:"manual", nomorOverride:null });
+      }
       draft.surats.sort(function(a,b){ return b.urut-a.urut; });
-      if(!msg) msg = "Nomor "+nomorText+" berhasil diterbitkan.";
+      if(!msg) msg = n>1 ? (n+" nomor berhasil diterbitkan: "+pertama+" s/d "+terakhir+".") : ("Nomor "+pertama+" berhasil diterbitkan.");
     });
     setModal(null); setEditingId(null); setPage(1);
     showToast(msg);
@@ -1590,27 +1620,34 @@ function App(){
       kode: kodeObjForPush ? kodeObjForPush.kode : "",
       instansi: current.settings.instansiKode,
       digit: current.settings.digit,
-      tujuan: values.tujuan, tanggal: fmtTanggal(values.tanggal), perihal: values.perihal, dibuatOleh: values.dibuatOleh
+      tujuan: values.tujuan, tanggal: fmtTanggal(values.tanggal), perihal: values.perihal, dibuatOleh: values.dibuatOleh,
+      jumlah: values.jumlah || 1
     });
     setSubmittingSurat(false);
-    if(hasil.ok && typeof hasil.id === "string"){
+    const jmlMinta = values.jumlah || 1;
+    const items = Array.isArray(hasil.items) ? hasil.items : (typeof hasil.id === "string" ? [{ id:hasil.id, no:hasil.no, nomor:hasil.nomor }] : []);
+    if(hasil.ok && items.length && items.length >= jmlMinta){
       mutateS(function(draft){
-        const finalUrut = Number(hasil.no) || (draft.counter + 1);
-        if(finalUrut > draft.counter) draft.counter = finalUrut;
-        draft.surats.unshift({
-          id: hasil.id, urut: finalUrut, kodeId: values.kodeId,
-          tujuan: values.tujuan, perihal: values.perihal, tanggal: values.tanggal,
-          dibuatOleh: values.dibuatOleh||"", sumber:"synced", nomorOverride: hasil.nomor
+        items.forEach(function(it){
+          const finalUrut = Number(it.no) || (draft.counter + 1);
+          if(finalUrut > draft.counter) draft.counter = finalUrut;
+          draft.surats.unshift({
+            id: it.id, urut: finalUrut, kodeId: values.kodeId,
+            tujuan: values.tujuan, perihal: values.perihal, tanggal: values.tanggal,
+            dibuatOleh: values.dibuatOleh||"", sumber:"synced", nomorOverride: it.nomor
+          });
         });
         draft.surats.sort(function(a,b){ return b.urut-a.urut; });
       });
       setModal(null); setEditingId(null); setPage(1);
-      showToast("Nomor "+hasil.nomor+" berhasil diterbitkan & tersimpan ke Google Sheet.");
-      setSheetInfo(function(prev){ return { total: prev.total+1, partial: prev.partial }; });
+      showToast(items.length>1
+        ? (items.length+" nomor berhasil diterbitkan ke Google Sheet: "+items[0].nomor+" s/d "+items[items.length-1].nomor+".")
+        : ("Nomor "+items[0].nomor+" berhasil diterbitkan & tersimpan ke Google Sheet."));
+      setSheetInfo(function(prev){ return { total: prev.total+items.length, partial: prev.partial }; });
     } else if(hasil.ok){
       showNotice("Skrip Apps Script Belum Diperbarui",
-        'SIMORIS berhasil terhubung ke Apps Script, tetapi responsnya bukan format yang diharapkan — tandanya skrip yang ter-deploy masih versi lama.\n\n'+
-        'Nomor surat TIDAK diterbitkan supaya tidak ada nomor ganda/salah format.\n\n'+
+        'SIMORIS berhasil terhubung ke Apps Script, tetapi skrip yang ter-deploy masih versi lama (belum mendukung penerbitan banyak nomor sekaligus).\n\n'+
+        'Kemungkinan baru 1 baris yang tertulis di sheet. Klik "Refresh Terbaru" untuk melihat kondisi sebenarnya, lalu perbarui skrip dan ulangi bila perlu.\n\n'+
         'Perbaikan: buka Google Sheet → Extensions → Apps Script → salin ulang skrip terbaru dari "Kelola Kode" → Deploy → Manage deployments → ikon pensil → Version: "New version" → Deploy.');
     } else {
       showNotice("Gagal Terhubung ke Google Sheet", 'Nomor surat BELUM diterbitkan karena SIMORIS tidak berhasil menghubungi Google Sheet — ini disengaja, supaya tidak ada nomor ganda/bentrok.\n\n'+
