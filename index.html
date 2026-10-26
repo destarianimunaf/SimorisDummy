@@ -175,6 +175,15 @@
   .badge-violet{ background:var(--violet-bg); color:var(--violet); }
   .badge-red{ background:var(--red-bg); color:var(--red); }
   .badge-slate{ background:var(--slate-bg); color:var(--slate); }
+  .status-strip{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .chip{ display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:999px; font-size:12px; font-weight:600; background:#fff; border:1px solid var(--ink-100); color:var(--ink-600); box-shadow:var(--shadow-sm); }
+  .chip svg{ flex-shrink:0; }
+  .chip-ok{ color:var(--green); border-color:rgba(47,125,92,.28); background:var(--green-bg); }
+  .steps{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin:4px 0 12px; }
+  .step{ display:flex; align-items:center; gap:8px; padding:9px 10px; background:var(--paper); border:1px solid var(--ink-100); border-radius:10px; font-size:12px; font-weight:600; color:var(--ink-700); }
+  .step b{ width:20px; height:20px; border-radius:50%; background:var(--ink-900); color:#fff; font-size:11px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .step svg{ color:var(--ink-400); flex-shrink:0; }
+  .mini-empty{ display:flex; justify-content:center; padding:10px; color:var(--ink-300); }
   footer.app-footer{ text-align:center; padding:28px 20px; color:var(--ink-400); font-size:12px; line-height:1.9; }
   .banner{ background:#fff8ec; border:1px solid #f0dbb0; color:#8a5a12; font-size:12px; padding:11px 14px; border-radius:11px; margin-bottom:16px; line-height:1.55; display:flex; gap:9px; }
   .banner svg{ flex-shrink:0; margin-top:1px; }
@@ -743,6 +752,26 @@ function BrandMark({ size }){
     </svg>
   );
 }
+const IconCloud = (p) => <Icon {...p}><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></Icon>;
+const IconDatabase = (p) => <Icon {...p}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></Icon>;
+const IconList = (p) => <Icon {...p}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></Icon>;
+const IconTable = (p) => <Icon {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></Icon>;
+const IconCopy = (p) => <Icon {...p}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></Icon>;
+const IconLink = (p) => <Icon {...p}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></Icon>;
+const IconRocket = (p) => <Icon {...p}><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></Icon>;
+function EmptyArt(){
+  return (
+    <svg width="120" height="92" viewBox="0 0 120 92" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{color:"var(--ink-300)"}}>
+      <rect x="22" y="14" width="46" height="60" rx="3"/>
+      <path d="M30 28h30M30 38h30M30 48h18"/>
+      <rect x="40" y="22" width="46" height="60" rx="3" fill="var(--paper)"/>
+      <path d="M48 36h30M48 46h30M48 56h18"/>
+      <circle cx="86" cy="62" r="13" fill="#fff"/>
+      <path d="M96 72l12 12" stroke="var(--segel)" strokeWidth="2.4"/>
+      <path d="M80 62h12" stroke="var(--segel)"/>
+    </svg>
+  );
+}
 const IconEdit = (p) => <Icon {...p}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></Icon>;
 const IconDelete = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></Icon>;
 const IconDownload = (p) => <Icon {...p}><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></Icon>;
@@ -762,13 +791,15 @@ function Toast({ message }){
   return <div className="toast"><IconCheck size={16}/><span>{message}</span></div>;
 }
 
-function Banner({ masterMode, sheetInfo }){
+function Banner({ masterMode, sheetInfo, loaded }){
   return (
-    <div className="banner">
-      <IconInfo size={15}/>
+    <div className="status-strip">
       {masterMode
-        ? <span><b>Google Sheet adalah data master.</b> Terbitkan, ubah, atau hapus surat di SIMORIS langsung tersinkron ke sana. Untuk menjaga aplikasi tetap ringan, yang otomatis dimuat cuma <b>100 surat terbaru</b>{sheetInfo && sheetInfo.total ? (" dari total "+sheetInfo.total) : ""} — pencarian tetap mencakup semua data (dicari langsung di sheet), atau klik <b>"Muat Semua Data"</b> kalau ingin melihat semuanya sekaligus.</span>
-        : <span>Data tersimpan otomatis di peramban perangkat ini. Untuk memakai data yang sama di perangkat/komputer lain: unduh <b>Cadangkan (JSON)</b> di sini lalu <b>Impor Excel/CSV</b> file tersebut di perangkat lain, atau aktifkan sinkron Google Sheet lewat "Kelola Kode" supaya semua perangkat memakai data yang sama.</span>}
+        ? <span className="chip chip-ok" title="Terhubung ke Google Sheet"><IconCloud size={14}/>Google Sheet</span>
+        : <span className="chip" title="Penyimpanan lokal"><IconDatabase size={14}/>Lokal</span>}
+      {masterMode && sheetInfo && sheetInfo.total
+        ? <span className="chip" title="Data termuat / total"><IconList size={14}/>{loaded} / {sheetInfo.total}</span>
+        : null}
     </div>
   );
 }
@@ -828,7 +859,6 @@ function LoginScreen({ onSuccess }){
         <div className="login-brand">
           <div className="brand-mark"><BrandMark size={30}/></div>
           <h1>SIMORIS</h1>
-          <p>Masuk untuk mengakses sistem penomoran surat</p>
         </div>
         <form onSubmit={submit}>
           <div className="field">
@@ -838,7 +868,6 @@ function LoginScreen({ onSuccess }){
           {err && <p className="error-text" style={{marginBottom:14}}>{err}</p>}
           <button type="submit" className="btn-dark">Masuk</button>
         </form>
-        <p className="login-hint">Kata sandi bawaan: <span className="mono">simoris2026</span> (ubah setelah masuk lewat Kelola Kode)</p>
       </div>
     </div>
   );
@@ -881,7 +910,7 @@ function Toolbar({
     <div className="toolbar">
       <div className="search">
         <IconSearch size={15}/>
-        <input type="text" placeholder="Cari perihal, tujuan, atau nomor surat..." value={search} onChange={function(e){ onSearch(e.target.value); }} />
+        <input type="text" placeholder="Cari surat..." value={search} onChange={function(e){ onSearch(e.target.value); }} />
         {searching && <IconRefresh size={14} className="spin" style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"var(--ink-400)"}}/>}
       </div>
       <select value={kodeFilter} onChange={function(e){ onKodeFilter(e.target.value); }}>
@@ -929,9 +958,7 @@ function SuratTable({ S, rows, pageInfo, onRowClick, onEdit, onDelete, paginatio
     return (
       <div className="card">
         <div className="empty">
-          <IconInbox size={34}/>
-          <p>Tidak ada surat yang cocok</p>
-          <p>Coba ubah kata kunci pencarian atau filter kode klasifikasi.</p>
+          <EmptyArt/>
         </div>
       </div>
     );
@@ -1006,7 +1033,7 @@ function SuratTable({ S, rows, pageInfo, onRowClick, onEdit, onDelete, paginatio
   );
 }
 
-function KodeCombobox({ options, value, onChange, placeholder }){
+function KodeCombobox({ options, value, onChange, onCreate, placeholder }){
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapRef = useRef(null);
@@ -1031,6 +1058,18 @@ function KodeCombobox({ options, value, onChange, placeholder }){
     setQuery("");
   }
 
+  const qRaw = query.trim();
+  const sepIdx = qRaw.search(/\s+[-—]\s+/);
+  const newKodeStr = (sepIdx > -1 ? qRaw.slice(0, sepIdx) : qRaw).trim().toUpperCase();
+  const newNamaStr = sepIdx > -1 ? qRaw.slice(sepIdx).replace(/^\s*[-—]\s*/, "").trim() : "";
+  const exactMatch = !!newKodeStr && options.some(function(k){ return k.kode.toLowerCase() === newKodeStr.toLowerCase(); });
+  const canCreate = !!onCreate && !!newKodeStr && !exactMatch;
+
+  function createNew(){
+    const id = onCreate(newKodeStr, newNamaStr);
+    if(id){ onChange(id); setOpen(false); setQuery(""); }
+  }
+
   return (
     <div className="combobox-wrap" ref={wrapRef}>
       <input
@@ -1042,7 +1081,11 @@ function KodeCombobox({ options, value, onChange, placeholder }){
         onChange={function(e){ setQuery(e.target.value); }}
         onKeyDown={function(e){
           if(e.key==="Escape"){ setOpen(false); setQuery(""); }
-          if(e.key==="Enter" && filtered.length){ e.preventDefault(); pick(filtered[0]); }
+          if(e.key==="Enter"){
+            e.preventDefault();
+            if(canCreate && !filtered.length) createNew();
+            else if(filtered.length) pick(filtered[0]);
+          }
         }}
       />
       {open && (
@@ -1054,14 +1097,19 @@ function KodeCombobox({ options, value, onChange, placeholder }){
                 {k.id===value && <IconCheck size={14}/>}
               </button>
             );
-          }) : <div className="combobox-empty">Tidak ada kode yang cocok.</div>}
+          }) : (!canCreate && <div className="combobox-empty">Tidak ada kode yang cocok.</div>)}
+          {canCreate && (
+            <button type="button" className="combobox-item" onMouseDown={function(e){ e.preventDefault(); createNew(); }} style={{borderTop: filtered.length ? "1px solid var(--ink-100)" : "none", color:"var(--ink-800)"}}>
+              <span><IconPlus size={13}/> Tambah kode baru: <b>{newKodeStr}</b>{newNamaStr ? (" — "+newNamaStr) : ""}</span>
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
+function SuratModal({ open, editing, S, onClose, onSubmit, onAddKode, submitting }){
   const opsiKodeBase = aktifKode(S);
   const [kodeId, setKodeId] = useState(null);
   const [tanggal, setTanggal] = useState(isoToday(0));
@@ -1131,7 +1179,7 @@ function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
           {!opsiKodeBase.length && <p className="error-text">Belum ada kode klasifikasi aktif. Tambahkan lewat "Kelola Kode" dulu.</p>}
           <div className="field">
             <label>Kode Klasifikasi</label>
-            <KodeCombobox options={opsiKode} value={kodeId} onChange={setKodeId} placeholder="Ketik untuk mencari kode/nama..."/>
+            <KodeCombobox options={opsiKode} value={kodeId} onChange={setKodeId} onCreate={onAddKode} placeholder="Cari / tulis kode"/>
           </div>
           <div className="grid2">
             <div className="field"><label>Tanggal Surat</label><input type="date" value={tanggal} onChange={function(e){ setTanggal(e.target.value); }}/></div>
@@ -1145,7 +1193,6 @@ function SuratModal({ open, editing, S, onClose, onSubmit, submitting }){
                 <button type="button" className="btn btn-ghost" style={{padding:"8px 14px"}} onClick={function(){ setJumlah(Math.max(1, jml-1)); }} disabled={jml<=1}>−</button>
                 <input type="number" min="1" max="50" value={jumlah} onChange={function(e){ setJumlah(e.target.value); }} onBlur={function(){ setJumlah(jml); }} style={{textAlign:"center",maxWidth:90}}/>
                 <button type="button" className="btn btn-ghost" style={{padding:"8px 14px"}} onClick={function(){ setJumlah(Math.min(50, jml+1)); }} disabled={jml>=50}>+</button>
-                <span className="hint">{jml>1 ? ("Terbit "+jml+" nomor berurutan, isian sama") : "1 nomor (maks. 50 sekaligus)"}</span>
               </div>
             </div>
           )}
@@ -1264,6 +1311,8 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
   const [pwErr, setPwErr] = useState("");
 
   const [appsExpanded, setAppsExpanded] = useState(!masterMode);
+  const [showAllKode, setShowAllKode] = useState(false);
+  const [kodeQuery, setKodeQuery] = useState("");
   const [appsUrl, setAppsUrl] = useState(S.settings.appsScriptUrl||"");
   const [appsErr, setAppsErr] = useState("");
   const [copied, setCopied] = useState(false);
@@ -1276,6 +1325,7 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
       setAppsUrl(S.settings.appsScriptUrl||"");
       setAppsExpanded(!masterMode);
       setNewKode(""); setNewNama(""); setKodeErr("");
+      setShowAllKode(false); setKodeQuery("");
       setPwOld(""); setPwNew(""); setPwNewConfirm(""); setPwErr("");
       setAppsErr("");
     }
@@ -1311,6 +1361,11 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
     setPwOld(""); setPwNew(""); setPwNewConfirm(""); setPwErr("");
     showToast("Kata sandi berhasil diubah.");
   }
+  const kodeQ = kodeQuery.trim().toLowerCase();
+  const kodeBase = kodeQ ? S.kodeList.filter(function(k){ return (k.kode+" "+k.nama).toLowerCase().indexOf(kodeQ) > -1; }) : S.kodeList;
+  const kodeTampil = showAllKode ? kodeBase : (kodeQ ? kodeBase.slice(0, 20) : []);
+  const kodeNoMatch = !!kodeQ && !kodeBase.length;
+
   function copySnippet(){
     function done(){ setCopied(true); setTimeout(function(){ setCopied(false); }, 1800); }
     if(navigator.clipboard && navigator.clipboard.writeText){
@@ -1344,10 +1399,17 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
       <div className="modal">
         <div className="modal-head"><h2>Kelola Kode Klasifikasi</h2><button className="modal-close" onClick={onClose}>&times;</button></div>
         <div className="modal-body">
-          <div className="banner"><IconInfo size={15}/><span>Kode klasifikasi ditambahkan manual sesuai kebutuhan kantor Anda. Yang otomatis hanya deret nomor urut di belakang (mis. ...-001, ...-002, dst).</span></div>
-
           <div>
-            {S.kodeList.map(function(k){
+            <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8,flexWrap:"wrap"}}>
+              <div className="field" style={{flex:1,minWidth:160}}>
+                <input type="text" placeholder={"Cari di "+S.kodeList.length+" kode klasifikasi..."} value={kodeQuery} onChange={function(e){ setKodeQuery(e.target.value); }}/>
+              </div>
+              <button className="btn btn-ghost" style={{padding:"9px 12px",fontSize:12.5}} onClick={function(){ setShowAllKode(!showAllKode); }}>
+                {showAllKode ? "Sembunyikan daftar" : ("Tampilkan semua ("+S.kodeList.length+")")}
+              </button>
+            </div>
+            {kodeNoMatch && <div className="mini-empty"><IconSearch size={18}/></div>}
+            {kodeTampil.map(function(k){
               return (
                 <div className="kode-row" key={k.id}>
                   <div><b className="mono">{k.kode}</b> &nbsp;{k.nama}{!k.aktif && <span style={{color:"var(--ink-400)"}}> (nonaktif)</span>}</div>
@@ -1394,9 +1456,11 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
               <span className="hint" style={{fontWeight:700,color:"var(--ink-600)",textTransform:"uppercase",fontSize:11}}>Sinkron Google Sheet (data master)</span>
               <span style={{color:"var(--ink-400)",transition:"transform .15s",transform:appsExpanded?"rotate(180deg)":"none"}}><IconChevronDown size={14}/></span>
             </button>
-            {masterMode
-              ? <p className="hint" style={{marginTop:6,color:"var(--green)"}}>✓ Aktif — Google Sheet adalah data master. Setiap terbitkan/ubah/hapus surat di SIMORIS langsung tersinkron ke sheet, dan sebaliknya.</p>
-              : <p className="hint" style={{marginTop:6}}>Nonaktif. SIMORIS memakai penyimpanan lokal di peramban ini saja.</p>}
+            <div style={{marginTop:8}}>
+              {masterMode
+                ? <span className="chip chip-ok"><IconCloud size={14}/>Aktif</span>
+                : <span className="chip"><IconDatabase size={14}/>Lokal</span>}
+            </div>
             {masterMode && (
               <button className="btn btn-segel" onClick={function(){ onClose(); onSaveAndRefresh(); }} style={{width:"100%",marginTop:10,justifyContent:"center",padding:10}}>
                 <IconRefresh size={14}/>Sinkron Manual Sekarang
@@ -1404,25 +1468,18 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
             )}
             {appsExpanded && (
               <div style={{marginTop:12}}>
-                <p className="hint" style={{marginBottom:10,lineHeight:1.5}}>
-                  Dengan fitur ini, <b>Google Sheet Anda menjadi database utama/master</b> — SIMORIS hanya menjadi tampilan yang selalu mencerminkan isi sheet itu persis. Sheet boleh tetap privat (tidak perlu dibagikan ke publik) karena semua akses lewat Apps Script berikut. Skrip ini dibuat khusus untuk sheet dengan data mulai <b>kolom B</b> (kolom A dibiarkan kosong): B=No, C=Tujuan Surat, D=Tanggal Surat, E=Perihal, F=Nomor Surat, G=Dibuat Oleh. Sudah pernah pakai versi sebelumnya (kolom ID di G)? Sisipkan 1 kolom baru sebelum kolom ID itu, beri judul "Dibuat Oleh" — ID akan otomatis bergeser ke H beserta isinya. Ikuti langkah ini:
-                </p>
-                <ol style={{fontSize:12.5,color:"var(--ink-700)",lineHeight:2,margin:"0 0 12px",paddingLeft:20}}>
-                  <li>Buka Google Sheet Anda, klik menu <b>Extensions</b> → <b>Apps Script</b>.</li>
-                  <li>Hapus tulisan yang ada, lalu tempel kode di bawah ini (klik "Salin Kode" dulu).</li>
-                  <li>Klik <b>Deploy</b> (kanan atas) → <b>New deployment</b> (kalau sudah pernah deploy sebelumnya: <b>Manage deployments</b> → ikon pensil → Version: "New version" → Deploy — supaya versi terbaru yang aktif, bukan yang lama).</li>
-                  <li>Klik ikon gerigi di samping "Select type" → pilih <b>Web app</b> (langkah ini dilewati kalau memakai "Manage deployments").</li>
-                  <li>Pada "Who has access", pilih <b>Anyone</b> → klik <b>Deploy</b> → izinkan akses jika diminta.</li>
-                  <li>Salin <b>URL Web app</b> yang muncul → tempel di kolom di bawah → <b>Simpan &amp; Sinkron Sekarang</b>.</li>
-                </ol>
-                <div className="banner" style={{marginBottom:12}}><IconInfo size={15}/><span>Kolom H akan otomatis dipakai skrip ini sebagai ID tersembunyi per baris — boleh diberi judul "ID" atau dibiarkan tanpa judul, jangan diisi manual.</span></div>
+                <div className="steps">
+                  <span className="step"><b>1</b><IconTable size={15}/>Extensions → Apps Script</span>
+                  <span className="step"><b>2</b><IconCopy size={15}/>Tempel kode</span>
+                  <span className="step"><b>3</b><IconRocket size={15}/>Deploy → Web app → Anyone</span>
+                  <span className="step"><b>4</b><IconLink size={15}/>Tempel URL</span>
+                </div>
                 <div style={{position:"relative"}}>
                   <textarea className="code-snippet" readOnly rows={9} value={APPS_SCRIPT_SNIPPET} onClick={function(e){ e.target.select(); }}/>
                   <button className="btn btn-ghost" onClick={copySnippet} style={{position:"absolute",top:8,right:8,padding:"6px 10px",fontSize:11.5}}>{copied ? "Tersalin" : "Salin Kode"}</button>
                 </div>
                 <div className="field" style={{marginTop:10}}><label>URL Web App Apps Script</label><input type="text" placeholder="https://script.google.com/macros/s/XXXXX/exec" value={appsUrl} onChange={function(e){ setAppsUrl(e.target.value); }}/></div>
                 {appsErr && <p className="error-text" style={{marginTop:8}}>{appsErr}</p>}
-                <p className="hint" style={{marginTop:8}}>Kalau kolom ini dikosongkan lalu disimpan, SIMORIS kembali memakai penyimpanan lokal biasa (tanpa Google Sheet).</p>
                 <div className="form-actions" style={{marginTop:10}}>
                   <button className="btn-ghost" onClick={saveAppsUrl}>Simpan Saja</button>
                   <button className="btn-dark" onClick={saveAndRefresh} disabled={savingApps}>{savingApps ? "Menyinkronkan..." : "Simpan & Sinkron Sekarang"}</button>
@@ -1434,14 +1491,9 @@ function KelolaModal({ open, S, onClose, mutateS, showToast, showNotice, showCon
           <div style={{borderTop:"1px solid var(--ink-100)",paddingTop:14}}>
             <p className="hint" style={{marginBottom:8,fontWeight:700,color:"var(--red)",textTransform:"uppercase",fontSize:11}}>Zona Bahaya</p>
             <div className="danger-zone">
-              {masterMode ? (
-                <p style={{fontSize:12.5,color:"var(--ink-600)",margin:"0 0 10px",lineHeight:1.5}}>Mode master Google Sheet sedang aktif — hapus banyak data sekaligus dilakukan langsung di Google Sheet (hapus barisnya), lalu klik <b>Refresh Google Sheet</b> di SIMORIS supaya tampilannya ikut sinkron. Tombol di bawah dinonaktifkan supaya data di SIMORIS tidak menyimpang dari sheet.</p>
-              ) : (
-                <p style={{fontSize:12.5,color:"var(--ink-600)",margin:"0 0 10px",lineHeight:1.5}}>Menghapus SEMUA data surat ({S.surats.length} surat) secara permanen dari perangkat ini. Kode klasifikasi dan pengaturan tidak ikut terhapus.</p>
-              )}
               <button onClick={onOpenHapusSemua} disabled={masterMode}
                 style={{width:"100%",padding:10,borderRadius:8,fontWeight:700,cursor:masterMode?"not-allowed":"pointer",background:masterMode?"var(--ink-100)":"var(--red)",color:masterMode?"var(--ink-400)":"#fff",border:"none"}}>
-                Hapus Semua Data Surat
+                <IconDelete size={14}/> Hapus Semua Data Surat
               </button>
             </div>
           </div>
@@ -1469,7 +1521,7 @@ function App(){
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
-  const [sheetInfo, setSheetInfo] = useState({ total:0, partial:false });
+  const [sheetInfo, setSheetInfo] = useState({ total:(S.sheetTotal||0), partial:false });
   const [loadingAll, setLoadingAll] = useState(false);
 
   const [searchResults, setSearchResults] = useState(null); // null = tidak sedang mencari server
@@ -1553,6 +1605,21 @@ function App(){
     setEditingId(null);
     setModal("surat");
   }
+  function addKodeBaru(kode, nama){
+    const kd = String(kode||"").trim();
+    if(!kd) return null;
+    const ada = sRef.current.kodeList.find(function(k){ return k.kode.toLowerCase() === kd.toLowerCase(); });
+    if(ada){
+      if(!ada.aktif) mutateS(function(d){ const k = d.kodeList.find(function(x){ return x.id===ada.id; }); if(k) k.aktif = true; });
+      return ada.id;
+    }
+    const id = uid();
+    mutateS(function(d){
+      d.kodeList.push({ id:id, kode:kd, nama:(nama||"").trim() || "Ditambahkan saat terbit", warna:WARNA_CYCLE[d.kodeList.length % WARNA_CYCLE.length], aktif:true });
+    });
+    showToast("Kode "+kd+" ditambahkan.");
+    return id;
+  }
   function openEdit(id){ setEditingId(id); setModal("surat"); }
   function closeSuratModal(){ setModal(null); setEditingId(null); }
 
@@ -1602,9 +1669,7 @@ function App(){
         setModal(null); setEditingId(null);
         showToast("Perubahan tersimpan & tersinkron ke Google Sheet.");
       } else {
-        showNotice("Gagal Sinkron ke Sheet", 'Perubahan BELUM disimpan supaya data SIMORIS tetap sama persis dengan Google Sheet.\n\n'+
-          'Kemungkinan penyebab: perangkat tidak terhubung ke internet, URL Apps Script salah/belum diperbarui ke versi terbaru, atau baris ini sudah dihapus manual di sheet.\n\n'+
-          'Coba lagi setelah memastikan koneksi internet aktif.'+(hasil.error?('\n\nDetail teknis: '+hasil.error):''));
+        showNotice("Gagal Simpan", 'Tidak bisa terhubung ke Google Sheet.'+(hasil.error ? ('\n'+hasil.error) : ''));
       }
       return;
     }
@@ -1645,19 +1710,14 @@ function App(){
         : ("Nomor "+items[0].nomor+" berhasil diterbitkan & tersimpan ke Google Sheet."));
       setSheetInfo(function(prev){ return { total: prev.total+items.length, partial: prev.partial }; });
     } else if(hasil.ok){
-      showNotice("Skrip Apps Script Belum Diperbarui",
-        'SIMORIS berhasil terhubung ke Apps Script, tetapi skrip yang ter-deploy masih versi lama (belum mendukung penerbitan banyak nomor sekaligus).\n\n'+
-        'Kemungkinan baru 1 baris yang tertulis di sheet. Klik "Refresh Terbaru" untuk melihat kondisi sebenarnya, lalu perbarui skrip dan ulangi bila perlu.\n\n'+
-        'Perbaikan: buka Google Sheet → Extensions → Apps Script → salin ulang skrip terbaru dari "Kelola Kode" → Deploy → Manage deployments → ikon pensil → Version: "New version" → Deploy.');
+      showNotice("Skrip Perlu Diperbarui", 'Skrip Apps Script masih versi lama. Perbarui lalu klik Refresh Terbaru.');
     } else {
-      showNotice("Gagal Terhubung ke Google Sheet", 'Nomor surat BELUM diterbitkan karena SIMORIS tidak berhasil menghubungi Google Sheet — ini disengaja, supaya tidak ada nomor ganda/bentrok.\n\n'+
-        'Kemungkinan penyebab:\n1. Perangkat ini sedang tidak terhubung ke internet.\n2. URL Apps Script di "Kelola Kode" salah atau deployment-nya belum di-"Anyone".\n\n'+
-        'Periksa koneksi lalu coba terbitkan lagi.'+(hasil.error?('\n\nDetail teknis: '+hasil.error):''));
+      showNotice("Gagal Terbit", 'Tidak bisa terhubung ke Google Sheet.'+(hasil.error ? ('\n'+hasil.error) : ''));
     }
   }
 
   function handleDelete(s){
-    showConfirm('Hapus surat "'+displayNomor(sRef.current, s)+'"? Tindakan ini tidak dapat dibatalkan.', async function(){
+    showConfirm('Hapus "'+displayNomor(sRef.current, s)+'"?', async function(){
       if(!masterMode){
         mutateS(function(draft){ draft.surats = draft.surats.filter(function(x){ return x.id!==s.id; }); });
         setModal(null);
@@ -1671,8 +1731,7 @@ function App(){
         showToast("Surat dihapus & tersinkron ke Google Sheet.");
         setSheetInfo(function(prev){ return { total: Math.max(0,prev.total-1), partial: prev.partial }; });
       } else {
-        showNotice("Gagal Sinkron ke Sheet", 'Surat BELUM dihapus supaya data SIMORIS tetap sama persis dengan Google Sheet.\n\n'+
-          'Periksa koneksi internet lalu coba lagi.'+(hasil.error?('\n\nDetail teknis: '+hasil.error):''));
+        showNotice("Gagal Hapus", 'Tidak bisa terhubung ke Google Sheet.'+(hasil.error ? ('\n'+hasil.error) : ''));
       }
     });
   }
@@ -1683,13 +1742,13 @@ function App(){
   async function doExportExcel(){
     showToast("Menyiapkan file Excel...");
     const ok = await exportExcelFile(sRef.current, filtered);
-    if(!ok) showNotice("Gagal Memuat Pustaka","Pustaka Excel gagal diambil dari internet. Periksa koneksi Anda lalu coba lagi.");
+    if(!ok) showNotice("Gagal Memuat Pustaka","Pustaka Excel gagal dimuat.");
   }
   function doExportCsv(){ exportCsvFile(sRef.current, filtered); }
   async function doExportPdf(){
     showToast("Menyiapkan file PDF...");
     const ok = await exportPdfFile(sRef.current, filtered);
-    if(!ok) showNotice("Gagal Memuat Pustaka","Pustaka PDF gagal diambil dari internet. Periksa koneksi Anda lalu coba lagi.");
+    if(!ok) showNotice("Gagal Memuat Pustaka","Pustaka PDF gagal dimuat.");
   }
   function doPrint(){ window.print(); }
   function doBackupJson(){ exportJsonBackup(sRef.current); }
@@ -1716,10 +1775,10 @@ function App(){
     else importRowsLegacy(parseCsv(text));
   }
   function handleImportedExcel(buf){
-    if(typeof XLSX === "undefined"){ showNotice("Pustaka Belum Siap","Pustaka pembaca Excel belum siap dimuat. Periksa koneksi internet Anda lalu muat ulang halaman."); return; }
+    if(typeof XLSX === "undefined"){ showNotice("Pustaka Belum Siap","Pustaka Excel belum siap."); return; }
     let wb;
     try{ wb = XLSX.read(buf, { type:"array", cellDates:true }); }
-    catch(e){ showNotice("File Tidak Terbaca","File Excel tidak dapat dibaca. Pastikan file berformat .xlsx atau .xls yang valid."); return; }
+    catch(e){ showNotice("File Tidak Terbaca","File Excel tidak terbaca."); return; }
     const ws = wb.Sheets[wb.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
     const rows = raw.map(function(r){ return r.map(excelCellToStr); }).filter(function(r){ return r.some(function(c){ return String(c).trim()!==""; }); });
@@ -1729,9 +1788,9 @@ function App(){
     let data;
     try{ data = JSON.parse(text); }catch(e){ showNotice("File Tidak Valid","File JSON tidak valid."); return; }
     if(!data || !Array.isArray(data.surats) || !Array.isArray(data.kodeList)){
-      showNotice("Format Tidak Dikenali",'Struktur file JSON tidak dikenali. Gunakan file hasil tombol "Cadangkan".'); return;
+      showNotice("Format Tidak Dikenali",'Format cadangan tidak dikenali.'); return;
     }
-    showConfirm("Menimpa seluruh data saat ini ("+sRef.current.surats.length+" surat) dengan isi file cadangan ("+data.surats.length+" surat)?", function(){
+    showConfirm("Timpa "+sRef.current.surats.length+" surat dengan "+data.surats.length+" surat dari cadangan?", function(){
       if(!data.settings) data.settings = { instansiKode:"W.9", digit:3, appsScriptUrl:"" };
       data.surats.sort(function(a,b){ return b.urut-a.urut; });
       setS(data);
@@ -1743,7 +1802,7 @@ function App(){
   function importRowsLegacy(rows){
     if(rows.length < 2){ showNotice("File Kosong","File kosong atau tidak terbaca."); return; }
     const cols = detectColumns(rows);
-    if(cols.idxPerihal === -1){ showNotice("Format Tidak Dikenali",'Kolom "Perihal" tidak ditemukan. Pastikan file memiliki kolom Perihal seperti pada format spreadsheet sebelumnya.'); return; }
+    if(cols.idxPerihal === -1){ showNotice("Format Tidak Dikenali",'Kolom "Perihal" tidak ditemukan.'); return; }
     const parsedRows = parseRowsToSurats(rows, cols);
     let summary = null;
     mutateS(function(draft){ summary = applyImportToDraft(draft, parsedRows); });
@@ -1765,6 +1824,7 @@ function App(){
       };
     });
     draft.counter = (typeof totalHint === "number" && totalHint > 0) ? totalHint : fresh.length;
+    draft.sheetTotal = draft.counter;
     fresh.sort(function(a,b){ return b.urut - a.urut; });
     draft.surats = fresh;
     const usedKodeIds = {};
@@ -1778,7 +1838,7 @@ function App(){
     const current = sRef.current;
     if(!(current.settings.appsScriptUrl||"").trim()){
       if(!silent){
-        showNotice("Belum Diatur",'URL Apps Script (Google Sheet) belum diatur.\n\nBuka "Kelola Kode" → bagian "Sinkron Google Sheet" untuk mengaturnya terlebih dahulu.');
+        showNotice("Belum Diatur",'URL Google Sheet belum diisi.');
         setModal("kelola");
       }
       return;
@@ -1794,21 +1854,13 @@ function App(){
       setSheetInfo({ total: totalHint, partial: !!hasil.partial });
       if(!silent){
         showToast(hasil.partial
-          ? ("Dimuat "+hasil.rows.length+" surat terbaru dari total "+hasil.total+".")
-          : ("Sinkron selesai — "+hasil.rows.length+" surat, sama persis dengan Google Sheet."));
+          ? (hasil.rows.length+" / "+hasil.total+" surat dimuat")
+          : ("Tersinkron: "+hasil.rows.length+" surat"));
       }
     } else if(hasil.ok && !Array.isArray(hasil.rows)){
-      showNotice("Skrip Apps Script Belum Diperbarui",
-        'SIMORIS berhasil terhubung ke Apps Script, tetapi responsnya bukan format daftar surat — tandanya skrip yang ter-deploy masih versi lama.\n\n'+
-        'Perbaikan: buka Google Sheet → Extensions → Apps Script → salin ulang skrip terbaru dari "Kelola Kode" di SIMORIS → Deploy → Manage deployments → ikon pensil → Version: "New version" → Deploy.\n\n'+
-        'Data di SIMORIS TIDAK diubah supaya aman.');
+      showNotice("Skrip Perlu Diperbarui", 'Skrip Apps Script masih versi lama. Salin ulang dari Kelola Kode lalu deploy versi baru.');
     } else if(!silent){
-      showNotice("Gagal Sinkron",'Gagal mengambil data dari Google Sheet.\n\n'+
-        'Kemungkinan penyebab:\n'+
-        '1. URL Apps Script salah atau deployment belum diatur ke akses "Anyone".\n'+
-        '2. Skrip di Apps Script belum diperbarui ke versi terbaru (salin ulang dari "Kelola Kode").\n'+
-        '3. Perangkat ini sedang tidak terhubung ke internet.\n\n'+
-        (hasil.error ? ('Detail teknis: '+hasil.error) : ''));
+      showNotice("Gagal Sinkron", 'Tidak bisa terhubung ke Google Sheet.'+(hasil.error ? ('\n'+hasil.error) : ''));
     }
   }
 
@@ -1829,7 +1881,7 @@ function App(){
   }
 
   function handleLogout(){
-    showConfirm("Keluar dari SIMORIS? Anda perlu memasukkan kata sandi lagi untuk membuka kembali.", function(){
+    showConfirm("Keluar dari SIMORIS?", function(){
       setAuthedStorage(false);
       setAuthed(false);
       setModal(null);
@@ -1848,7 +1900,7 @@ function App(){
 
   return (
     <div className="paper-texture" style={{minHeight:"100vh"}}>
-      <Header count={S.surats.length} onKelola={function(){ setModal("kelola"); }} onTambah={openTambah} onLogout={handleLogout}/>
+      <Header count={masterMode ? (sheetInfo.total || S.sheetTotal || S.surats.length) : S.surats.length} onKelola={function(){ setModal("kelola"); }} onTambah={openTambah} onLogout={handleLogout}/>
       <main className="wrap">
         <Toolbar
           search={search} onSearch={function(v){ setSearch(v); setPage(1); }}
@@ -1862,7 +1914,7 @@ function App(){
           onExportExcel={doExportExcel} onExportCsv={doExportCsv} onExportPdf={doExportPdf} onPrint={doPrint} onBackupJson={doBackupJson}
           masterMode={masterMode}
         />
-        <Banner masterMode={masterMode} sheetInfo={sheetInfo}/>
+        <Banner masterMode={masterMode} sheetInfo={sheetInfo} loaded={S.surats.length}/>
         <SuratTable
           S={S} rows={rows} pageInfo={{ total: filtered.length }}
           onRowClick={openDetail} onEdit={openEdit} onDelete={handleDelete}
@@ -1870,7 +1922,7 @@ function App(){
         />
       </main>
 
-      <SuratModal open={modal==="surat"} editing={editingSurat} S={S} onClose={closeSuratModal} onSubmit={handleSubmitSurat} submitting={submittingSurat}/>
+      <SuratModal open={modal==="surat"} editing={editingSurat} S={S} onClose={closeSuratModal} onSubmit={handleSubmitSurat} onAddKode={addKodeBaru} submitting={submittingSurat}/>
       <KelolaModal
         open={modal==="kelola"} S={S} onClose={function(){ setModal(null); }} mutateS={mutateS}
         showToast={showToast} showNotice={showNotice} showConfirm={showConfirm}
@@ -1884,7 +1936,7 @@ function App(){
       <HapusSemuaModal open={modal==="hapusSemua"} count={S.surats.length} onClose={function(){ setModal(null); }} onConfirm={confirmHapusSemua}/>
 
       <Toast message={toast}/>
-      <footer className="app-footer">SIMORIS · data tersimpan di peramban perangkat ini<br/>Dibuat oleh IT Pokja SDM</footer>
+      <footer className="app-footer">SIMORIS · IT Pokja SDM</footer>
     </div>
   );
 }
